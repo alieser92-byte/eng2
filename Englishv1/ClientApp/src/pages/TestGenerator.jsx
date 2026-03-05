@@ -246,7 +246,7 @@ function TestGenerator() {
                       <div className="module-list">
                         {section.modules.map((mod, mi) => (
                           <div key={mi} className="module-item">
-                            <span className="module-name">{mod.name}</span>
+                            <span className="module-name">{mod.name}:</span>
                             <span className="module-questions">{mod.questions} soru</span>
                           </div>
                         ))}

@@ -96,4 +96,33 @@ https://localhost:7000/swagger
 
 ---
 
+## 🍎 Mac (Apple Silicon) Kurulum - Docker ile
+
+> **EN KOLAY YOL:** Windows veya manuel kurulum yerine Docker kullanın!
+
+### Gereksinim
+- Docker Desktop for Mac (Apple Silicon)
+  - İndir: https://www.docker.com/products/docker-desktop/
+
+### Tek Komutla Çalıştır
+```bash
+cd Englishv1
+docker-compose up --build
+```
+
+### Tarayıcıda Aç
+```
+http://localhost:5000
+```
+
+### Durdur
+```bash
+docker-compose down
+```
+
+**Detaylı talimatlar için:** [DOCKER_MAC.md](DOCKER_MAC.md) dosyasına bakın.
+
+---
+
 Kolay gelsin! 🚀
+

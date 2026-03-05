@@ -32,6 +32,8 @@ function SpeakingPractice() {
 
   const mediaRecorderRef = useRef(null);
   const recognitionRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const isRecordingRef = useRef(false); // Separate ref for audio stream
 
   const toeflQuestions = {
     independent: [
@@ -95,32 +97,64 @@ function SpeakingPractice() {
   };
 
   useEffect(() => {
-    // Web Speech API setup
+    // Web Speech API setup - only initialize once
     if ('webkitSpeechRecognition' in window) {
       const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = true; // Keep listening
       recognition.interimResults = true;
       recognition.lang = 'en-US';
+      recognition.maxAlternatives = 1;
 
       recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+        let fullTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
-          }
+        // Get all results, not just from resultIndex
+        for (let i = 0; i < event.results.length; i++) {
+          const result = event.results[i];
+          fullTranscript += result[0].transcript + (result.isFinal ? ' ' : '');
         }
 
-        setTranscript(finalTranscript + interimTranscript);
+        setTranscript(fullTranscript.trim());
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'aborted' || event.error === 'no-speech') {
+          // Normal errors, don't show
+          return;
+        }
+      };
+
+      recognition.onend = () => {
+        console.log('Recognition ended - NOT restarting');
+        // Explicitly DO NOT restart
       };
 
       recognitionRef.current = recognition;
     }
-  }, []);
+
+    // Cleanup on unmount
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {
+          console.log('Recognition cleanup error:', e);
+        }
+      }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(track => track.stop());
+        audioStreamRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.log('MediaRecorder cleanup error:', e);
+        }
+      }
+    };
+  }, []); // Empty dependency - run only once on mount
 
   const startPractice = (type) => {
     setTaskType(type);
@@ -131,41 +165,137 @@ function SpeakingPractice() {
   };
 
   const startRecording = async () => {
+    if (isRecordingRef.current) {
+      console.log('Already recording, ignoring start');
+      return;
+    }
+    
+    isRecordingRef.current = true; // Set IMMEDIATELY to prevent double-clicks
+    setIsRecording(true);
+    console.log('=== STARTING RECORDING ===');
+    
     try {
+      // First check if microphone permission is available
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+          if (permissionStatus.state === 'denied') {
+            alert('Mikrofon erişimi reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini açın:\n\n1. Adres çubuğunun solundaki kilit/mikrofon ikonuna tıklayın\n2. Mikrofon iznini "İzin ver" olarak ayarlayın\n3. Sayfayı yenileyin');
+            return;
+          }
+        } catch (e) {
+          // Some browsers don't support permissions API, continue anyway
+          console.log('Permission API not supported:', e);
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
+      audioStreamRef.current = stream; // Store stream separately for cleanup
 
       const audioChunks = [];
       mediaRecorder.ondataavailable = (event) => {
         audioChunks.push(event.data);
       };
 
-      mediaRecorder.onstop = async () => {
+      mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        await sendAudioToAI(audioBlob);
+        // Don't do cleanup here, let handleRecordAnswer do it
+        // Just create the blob for potential AI processing
       };
 
       mediaRecorder.start();
-      recognitionRef.current?.start();
-      setIsRecording(true);
-      setTranscript('');
+      console.log('MediaRecorder started');
+      
+      // Start speech recognition - don't catch errors, let them fail
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          console.log('Recognition started');
+        } catch (e) {
+          console.log('Recognition start error (may already be running):', e);
+        }
+      }
+      
+      setTranscript(''); // Clear previous transcript
+      console.log('Recording fully started, transcript cleared');
     } catch (error) {
       console.error('Error starting recording:', error);
-      alert('Mikrofon erişimi alınamadı. Lütfen izinleri kontrol edin.');
+      
+      // Reset states on error
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      
+      // More specific error messages
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        alert('Mikrofon erişimi reddedildi.\n\nÇözüm:\n1. Tarayıcı adres çubuğunun solundaki kilit/mikrofon ikonuna tıklayın\n2. Mikrofon iznini "İzin ver" olarak değiştirin\n3. Sayfayı yenileyin (F5)');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        alert('Mikrofon bulunamadı. Lütfen mikrofonunuzun bağlı olduğundan emin olun.');
+      } else if (error.name === 'NotReadableError') {
+        alert('Mikrofon başka bir uygulama tarafından kullanılıyor. Lütfen diğer uygulamaları kapatın.');
+      } else {
+        alert('Mikrofon erişimi alınamadı: ' + error.message + '\n\nLütfen tarayıcı ayarlarından mikrofon iznini kontrol edin.');
+      }
     }
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    recognitionRef.current?.stop();
-    setIsRecording(false);
+    if (!isRecordingRef.current) {
+      console.log('Not recording, ignoring stop');
+      return;
+    }
+    
+    console.log('=== STOPPING RECORDING (Practice Mode) ===');
+    
+    try {
+      // 1. Set flag to false immediately
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      
+      // 2. Stop speech recognition first
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+          console.log('✓ Recognition aborted');
+        } catch (e) {
+          console.log('Recognition stop error:', e);
+        }
+      }
+      
+      // 3. Stop media recorder
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+          console.log('✓ MediaRecorder stopped');
+        } catch (e) {
+          console.log('MediaRecorder stop error:', e);
+        }
+      }
+      
+      // 4. Stop all media stream tracks
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(track => {
+          try {
+            track.stop();
+            console.log('✓ Track stopped:', track.label);
+          } catch (e) {
+            console.log('Track stop error:', e);
+          }
+        });
+        audioStreamRef.current = null;
+      }
 
-    // Add user message to conversation
-    setConversation(prev => [
-      ...prev,
-      { role: 'user', text: transcript, time: new Date() }
-    ]);
+      // Add user message to conversation
+      setConversation(prev => [
+        ...prev,
+        { role: 'user', text: transcript, time: new Date() }
+      ]);
+      
+      console.log('=== RECORDING STOPPED SUCCESSFULLY ===');
+    } catch (err) {
+      console.error('Error in stopRecording:', err);
+    }
   };
 
   const sendAudioToAI = async (audioBlob) => {
@@ -286,19 +416,71 @@ function SpeakingPractice() {
     }
   };
 
-  const handleRecordAnswer = () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      recognitionRef.current?.stop();
-      setIsRecording(false);
+  const handleRecordAnswer = async () => {
+    console.log('handleRecordAnswer called, isRecordingRef:', isRecordingRef.current, 'isRecording state:', isRecording);
+    
+    if (isRecordingRef.current) {
+      console.log('=== STOPPING RECORDING ===');
       
-      // Save the answer
-      setAnswers(prev => ({
-        ...prev,
-        [currentQuestionIndex]: transcript
-      }));
+      try {
+        // 1. IMMEDIATELY set flag to false to update UI
+        setIsRecording(false);
+        isRecordingRef.current = false;
+        
+        // 2. Stop speech recognition FIRST (most important)
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort(); // Use abort instead of stop for immediate effect
+            console.log('✓ Recognition aborted');
+          } catch (e) {
+            console.log('Recognition abort error:', e);
+          }
+        }
+        
+        // 3. Stop media recorder
+        if (mediaRecorderRef.current) {
+          try {
+            if (mediaRecorderRef.current.state === 'recording') {
+              mediaRecorderRef.current.stop();
+              console.log('✓ MediaRecorder stopped');
+            }
+          } catch (e) {
+            console.log('MediaRecorder stop error:', e);
+          }
+        }
+        
+        // 4. Stop and release all audio tracks IMMEDIATELY
+        if (audioStreamRef.current) {
+          const tracks = audioStreamRef.current.getTracks();
+          console.log('Stopping', tracks.length, 'audio tracks');
+          tracks.forEach(track => {
+            try {
+              track.stop();
+              console.log('✓ Track stopped:', track.label);
+            } catch (e) {
+              console.log('Track stop error:', e);
+            }
+          });
+          audioStreamRef.current = null;
+        }
+        
+        // 5. Save the answer with current transcript
+        const currentTranscript = transcript.trim();
+        if (currentTranscript) {
+          setAnswers(prev => ({
+            ...prev,
+            [currentQuestionIndex]: currentTranscript
+          }));
+          console.log('✓ Answer saved:', currentTranscript.substring(0, 50) + '...');
+        }
+        
+        console.log('=== RECORDING STOPPED SUCCESSFULLY ===');
+      } catch (err) {
+        console.error('Error stopping recording:', err);
+      }
     } else {
-      startRecording();
+      console.log('=== STARTING RECORDING ===');
+      await startRecording();
     }
   };
 

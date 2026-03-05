@@ -202,6 +202,52 @@ Englishv1/
 - `App.jsx` içinde route'ları güncelleyin
 - CSS dosyalarını düzenleyerek tasarımı özelleştirin
 
+## 🍎 Mac (Apple Silicon) için Hızlı Kurulum
+
+> **Tek komutla çalıştırın!** Docker ile tüm uygulama otomatik olarak build edilip ayağa kalkar.
+
+### Gereksinimler
+- **Docker Desktop for Mac** (Apple Silicon - M1/M2/M3 uyumlu)
+  - İndirin: https://www.docker.com/products/docker-desktop/
+
+### Adım 1: Docker'ı Çalıştırın
+```bash
+# Docker Desktop'ı açın ve çalıştığından emin olun
+docker --version
+```
+
+### Adım 2: Uygulamayı Başlatın
+```bash
+cd Englishv1
+docker-compose up --build
+```
+
+### Adım 3: Tarayıcıda Açın
+```
+http://localhost:5000
+```
+
+### Durdurma ve Temizleme
+```bash
+# Uygulamayı durdur
+docker-compose down
+
+# Container'ı tamamen sil (cache temizliği)
+docker-compose down --rmi all --volumes
+```
+
+### Yeniden Build (Değişikliklerden Sonra)
+```bash
+docker-compose up --build --force-recreate
+```
+
+### Önemli Notlar
+- ✅ Apple Silicon (ARM64) için optimize edilmiş
+- ✅ Frontend ve Backend otomatik build edilir
+- ✅ Port 5000'de çalışır
+- ✅ Tek komutla tüm bağımlılıklar kurulur
+- ⚠️ İlk build 5-10 dakika sürebilir (sonraki başlatmalar çok hızlıdır)
+
 ## 📝 Notlar
 
 - Bu uygulama TOEFL formatını takip eden bir pratik aracıdır

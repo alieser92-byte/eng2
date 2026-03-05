@@ -346,6 +346,31 @@
   border-color: #43e97b;
 }
 
+.module-list {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.module-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.module-name {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.module-questions {
+  color: #666;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 1024px) {
   .generator-content {
     grid-template-columns: 1fr;

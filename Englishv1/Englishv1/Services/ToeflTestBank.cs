@@ -42,30 +42,168 @@ public static class ToeflTestBank
 
     private static void AppendReading(System.Text.StringBuilder sb, string difficulty)
     {
-        sb.AppendLine("## READING SECTION (54 minutes for 3 passages)\n");
-
-        var passages = PickRandom(ReadingPassages, 3);
-        int qNum = 1;
-
-        for (int p = 0; p < passages.Count; p++)
+        sb.AppendLine("# Reading Section\n");
+        
+        // Module 1
+        sb.AppendLine("## Reading Section, Module 1\n");
+        sb.AppendLine("### Fill in the missing letters in the paragraph (Questions 1-10)\n");
+        
+        var fillInPara1 = PickRandom(FillInParagraphs, 1)[0];
+        sb.AppendLine(fillInPara1.Paragraph);
+        sb.AppendLine("\nAnswer Key:\n");
+        for (int i = 0; i < fillInPara1.Answers.Count; i++)
         {
-            var passage = passages[p];
-            sb.AppendLine($"### Passage {p + 1}: {passage.Title}\n");
-            sb.AppendLine(passage.Text);
-            sb.AppendLine();
-
-            sb.AppendLine($"**Questions {qNum}-{qNum + passage.Questions.Count - 1}:**\n");
-            foreach (var q in passage.Questions)
-            {
-                sb.AppendLine($"{qNum}. {q.Stem}");
-                sb.AppendLine($"   A) {q.A}");
-                sb.AppendLine($"   B) {q.B}");
-                sb.AppendLine($"   C) {q.C}");
-                sb.AppendLine($"   D) {q.D}");
-                sb.AppendLine($"   **Answer: {q.Answer}**\n");
-                qNum++;
-            }
+            sb.AppendLine($"{i + 1}. {fillInPara1.Answers[i]}");
         }
+        sb.AppendLine("\n---\n");
+        
+        // Notice
+        sb.AppendLine("### Read a notice (Questions 11-12)\n");
+        var notice1 = PickRandom(Notices, 1)[0];
+        sb.AppendLine($"**Notice**\n\n{notice1.Text}\n");
+        for (int i = 0; i < notice1.Questions.Count; i++)
+        {
+            var q = notice1.Questions[i];
+            sb.AppendLine($"{11 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Social Media Post
+        sb.AppendLine("### Read a social media post (Questions 13-15)\n");
+        var post1 = PickRandom(SocialMediaPosts, 1)[0];
+        sb.AppendLine($"{post1.Text}\n");
+        for (int i = 0; i < post1.Questions.Count; i++)
+        {
+            var q = post1.Questions[i];
+            sb.AppendLine($"{13 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Academic Passage
+        sb.AppendLine("### Read an Academic Passage (Questions 16-20)\n");
+        var academic1 = PickRandom(AcademicPassages, 1)[0];
+        sb.AppendLine($"{academic1.Text}\n");
+        for (int i = 0; i < academic1.Questions.Count; i++)
+        {
+            var q = academic1.Questions[i];
+            sb.AppendLine($"{16 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Module 2
+        sb.AppendLine("# Reading Section, Module 2\n");
+        sb.AppendLine("## Fill in the missing letters in the paragraph (Questions 1-10)\n");
+        
+        var fillInPara2 = PickRandom(FillInParagraphs, 1)[0];
+        sb.AppendLine(fillInPara2.Paragraph);
+        sb.AppendLine("\nAnswer Key:\n");
+        for (int i = 0; i < fillInPara2.Answers.Count; i++)
+        {
+            sb.AppendLine($"{i + 1}. {fillInPara2.Answers[i]}");
+        }
+        sb.AppendLine("\n---\n");
+        
+        // Notice
+        sb.AppendLine("### Read a notice (Questions 11-12)\n");
+        var notice2 = PickRandom(Notices, 1)[0];
+        sb.AppendLine($"**Notice**\n\n{notice2.Text}\n");
+        for (int i = 0; i < notice2.Questions.Count; i++)
+        {
+            var q = notice2.Questions[i];
+            sb.AppendLine($"{11 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Social Media Post
+        sb.AppendLine("### Read a social media post (Questions 13-15)\n");
+        var post2 = PickRandom(SocialMediaPosts, 1)[0];
+        sb.AppendLine($"{post2.Text}\n");
+        for (int i = 0; i < post2.Questions.Count; i++)
+        {
+            var q = post2.Questions[i];
+            sb.AppendLine($"{13 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Academic Passage
+        sb.AppendLine("### Read an Academic Passage (Questions 16-20)\n");
+        var academic2 = PickRandom(AcademicPassages, 1)[0];
+        sb.AppendLine($"{academic2.Text}\n");
+        for (int i = 0; i < academic2.Questions.Count; i++)
+        {
+            var q = academic2.Questions[i];
+            sb.AppendLine($"{16 + i}. {q.Stem}");
+            sb.AppendLine($"    (A) {q.A}");
+            sb.AppendLine($"    (B) {q.B}");
+            sb.AppendLine($"    (C) {q.C}");
+            sb.AppendLine($"    (D) {q.D}");
+            sb.AppendLine();
+        }
+        sb.AppendLine("---\n");
+        
+        // Answer Key for Module 1
+        sb.AppendLine("## Reading Section Answer Key\n\n### Module 1\n");
+        for (int i = 0; i < fillInPara1.Answers.Count; i++)
+        {
+            sb.AppendLine($"{i + 1}. {fillInPara1.Answers[i]}");
+        }
+        for (int i = 0; i < notice1.Questions.Count; i++)
+        {
+            sb.AppendLine($"{11 + i}. {notice1.Questions[i].Answer}");
+        }
+        for (int i = 0; i < post1.Questions.Count; i++)
+        {
+            sb.AppendLine($"{13 + i}. {post1.Questions[i].Answer}");
+        }
+        for (int i = 0; i < academic1.Questions.Count; i++)
+        {
+            sb.AppendLine($"{16 + i}. {academic1.Questions[i].Answer}");
+        }
+        
+        // Answer Key for Module 2
+        sb.AppendLine("\n### Module 2\n");
+        for (int i = 0; i < fillInPara2.Answers.Count; i++)
+        {
+            sb.AppendLine($"{i + 1}. {fillInPara2.Answers[i]}");
+        }
+        for (int i = 0; i < notice2.Questions.Count; i++)
+        {
+            sb.AppendLine($"{11 + i}. {notice2.Questions[i].Answer}");
+        }
+        for (int i = 0; i < post2.Questions.Count; i++)
+        {
+            sb.AppendLine($"{13 + i}. {post2.Questions[i].Answer}");
+        }
+        for (int i = 0; i < academic2.Questions.Count; i++)
+        {
+            sb.AppendLine($"{16 + i}. {academic2.Questions[i].Answer}");
+        }
+        sb.AppendLine();
     }
 
     // ───────────────────── LISTENING ─────────────────────
@@ -334,6 +472,165 @@ The printing press also accelerated the Scientific Revolution. Scientists could 
                 new McQuestion("The phrase \"informed public sphere\" in the last paragraph refers to:", "A specific government institution", "A society where citizens have access to information and can engage in discourse", "A type of printed publication", "An scientific research community", "B"),
                 new McQuestion("Why does the author mention the standardization of languages?", "To argue that printing destroyed linguistic diversity", "To illustrate another significant cultural impact of the printing press", "To criticize modern spelling conventions", "To explain why Latin declined", "B"),
                 new McQuestion("What can be inferred from the passage about pre-printing-press Europe?", "Most people had access to a wide variety of books", "Knowledge was largely controlled by a small privileged class", "Monks preferred not to produce books", "Scientific knowledge was widely shared", "B"),
+            }
+        },
+    };
+
+    private static readonly List<FillInParagraph> FillInParagraphs = new()
+    {
+        new FillInParagraph
+        {
+            Paragraph = "Traveling to new places can be an exc____ing experience for many people. It a__ows individuals to le___n about different cultures and tra____ions. Many travelers en___y tasting lo___l food and mee___g new people. Visiting museums and histo____ sites can also he__ visitors understand a city's pa___. Although travel can sometimes be expen___ve, many peo___ believe the memories they ga__ are worth it.",
+            Answers = new() { "it", "ll", "ar", "dit", "jo", "ca", "tin", "ric", "lp", "st" }
+        },
+        new FillInParagraph
+        {
+            Paragraph = "The oce___ covers more than seventy per___nt of Earth's sur___ce and plays a vi___l role in regulating climate. It ab___rbs heat from the sun and helps dist___bute it around the pla__t. The ocean is also ho__ to millions of species of fish, pla___s, and other orga____ms. Scientists cont____e to explore the deep sea to learn mo__ about this fascinating enviro____ent.",
+            Answers = new() { "an", "ce", "fa", "ta", "so", "ri", "ne", "me", "nt", "nu" }
+        },
+        new FillInParagraph
+        {
+            Paragraph = "Technology has tra____ormed how people comm____cate with each other. Smartpho___s and social me___ platforms allow instant mes___ging across long dis____ces. Many bus____sses now rely on video conf____ncing tools for remote meet___gs. However, some experts wa__ that excessive screen ti___ may negatively affect mental hea____.",
+            Answers = new() { "nsf", "uni", "ne", "dia", "sag", "tan", "ine", "ere", "in", "rn", "me", "lth" }
+        },
+        new FillInParagraph
+        {
+            Paragraph = "Climate cha___ is one of the most ser____us challenges facing human____. Rising tempera____res are causing ice caps to me___, sea levels to ri___, and weather pat____ns to become more extr___. Scientists ag___ that reducing car___ emissions is ess____ial to prevent further envir____mental damage.",
+            Answers = new() { "nge", "iou", "ity", "tur", "lt", "se", "ter", "eme", "ree", "bon", "ent", "onm" }
+        },
+    };
+
+    private static readonly List<Notice> Notices = new()
+    {
+        new Notice
+        {
+            Text = @"Dear Customers,
+
+Starting next month, all account statements will be available through our secure online banking system. Customers who prefer digital statements can easily enroll in paperless billing. This service helps reduce paper waste and allows you to access your financial records anytime.
+
+Thank you for banking with us.",
+            Questions = new()
+            {
+                new McQuestion("What type of business issued the notice?", "An Internet provider", "A computer company", "A paper company", "A bank", "D"),
+                new McQuestion("How can customers enroll in paperless billing?", "By visiting an office", "By accessing the website", "By using the app", "By calling customer service", "B"),
+            }
+        },
+        new Notice
+        {
+            Text = @"Office Notice
+
+All employees are reminded that the office parking lot will be closed on Friday morning for maintenance work. Staff members are encouraged to use the public parking garage across the street during this time. The parking lot will reopen at 1:00 PM.
+
+Thank you for your cooperation.",
+            Questions = new()
+            {
+                new McQuestion("What type of organization issued the notice?", "A restaurant", "An office", "A hospital", "A school", "B"),
+                new McQuestion("What should employees do Friday morning?", "Work from home", "Leave work early", "Use another parking area", "Avoid coming to work", "C"),
+            }
+        },
+        new Notice
+        {
+            Text = @"Library Announcement
+
+The university library will be extending its hours during final exam week. Starting December 10th, the library will remain open 24 hours a day until December 17th. Additional study rooms and computer stations will be available. Students are reminded to bring their ID cards for late-night access.
+
+Good luck with your exams!",
+            Questions = new()
+            {
+                new McQuestion("What is the main purpose of the notice?", "To announce new library rules", "To inform students about extended library hours", "To advertise library services", "To remind students about ID cards", "B"),
+                new McQuestion("When will the extended hours begin?", "December 9th", "December 10th", "December 17th", "During all exam weeks", "B"),
+            }
+        },
+    };
+
+    private static readonly List<SocialMediaPost> SocialMediaPosts = new()
+    {
+        new SocialMediaPost
+        {
+            Text = @"Last Saturday I visited the Riverside Weekend Market, and it was fantastic! The market had dozens of small stands selling fresh fruits, handmade crafts, and local snacks. I especially enjoyed the homemade bread and fresh lemonade. There was also live music, which made the atmosphere very lively and fun. If you live nearby or plan to visit the area, I highly recommend stopping by on Saturday morning. It's a great place to support local businesses and spend time with friends or family.",
+            Questions = new()
+            {
+                new McQuestion("What is the main purpose of the post?", "To complain about a market", "To advertise a music concert", "To recommend visiting a local market", "To explain how markets operate", "C"),
+                new McQuestion("What did the writer especially enjoy?", "Handmade jewelry", "Fresh bread and lemonade", "The parking area", "Buying vegetables", "B"),
+                new McQuestion("When does the writer recommend visiting the market?", "Friday evening", "Saturday morning", "Sunday night", "Monday afternoon", "B"),
+            }
+        },
+        new SocialMediaPost
+        {
+            Text = @"I finally tried the new café that opened downtown last week, and I was pleasantly surprised. The café has a calm atmosphere and comfortable seating, which makes it perfect for studying or reading. Their coffee tastes fresh, and they also serve delicious pastries. I ordered a chocolate croissant, and it was amazing. The staff members were friendly and helpful as well. If you enjoy quiet places where you can relax or work on your laptop, this café is definitely worth a visit.",
+            Questions = new()
+            {
+                new McQuestion("What is the main purpose of the post?", "To criticize a café", "To recommend a new café", "To explain how coffee is made", "To compare several restaurants", "B"),
+                new McQuestion("What did the writer eat?", "A sandwich", "A muffin", "A chocolate croissant", "A bagel", "C"),
+                new McQuestion("What does the writer say about the café atmosphere?", "It is very noisy", "It is calm and comfortable", "It is crowded and busy", "It is expensive", "B"),
+            }
+        },
+        new SocialMediaPost
+        {
+            Text = @"Just got back from a weekend camping trip in the mountains, and it was exactly what I needed! We hiked to a beautiful lake surrounded by pine trees and set up our tents nearby. The night sky was incredible — I've never seen so many stars. We spent the evenings cooking over the campfire and telling stories. The only downside was the mosquitoes, but bug spray helped. If you're feeling stressed and need a break from city life, I highly recommend disconnecting and spending time in nature.",
+            Questions = new()
+            {
+                new McQuestion("What is the main purpose of the post?", "To share a positive camping experience", "To complain about mosquitoes", "To promote a camping gear store", "To teach survival skills", "A"),
+                new McQuestion("What did the writer particularly enjoy?", "The hotel accommodations", "The starry night sky", "Shopping for camping equipment", "Driving through the mountains", "B"),
+                new McQuestion("What problem did the writer encounter?", "Bad weather", "Mosquitoes", "Broken equipment", "Getting lost", "B"),
+            }
+        },
+    };
+
+    private static readonly List<AcademicPassage> AcademicPassages = new()
+    {
+        new AcademicPassage
+        {
+            Text = @"Sleep is an important biological process that helps the body and mind recover from daily activities. Scientists believe that sleep plays a key role in memory, learning, and overall health. During sleep, the brain processes information collected throughout the day and stores it in long-term memory.
+
+Researchers have discovered that people who regularly get enough sleep often perform better in school and at work. Lack of sleep, on the other hand, can cause problems such as difficulty concentrating, mood changes, and weaker immune systems. Over time, chronic sleep deprivation may also increase the risk of health problems including heart disease and diabetes.
+
+Sleep occurs in several stages, including light sleep, deep sleep, and rapid eye movement (REM) sleep. Each stage serves a different function. For example, deep sleep is believed to help the body repair tissues and restore energy, while REM sleep is strongly connected to dreaming and emotional processing.
+
+Because sleep is so essential, health experts recommend that adults aim for seven to nine hours of sleep each night.",
+            Questions = new()
+            {
+                new McQuestion("What is the passage mainly about?", "How people remember dreams", "Why sleep is important for health and learning", "The history of sleep research", "How to avoid sleeping too much", "B"),
+                new McQuestion("The word \"chronic\" in the passage is closest in meaning to", "temporary", "long-lasting", "surprising", "minor", "B"),
+                new McQuestion("According to the passage, what happens during sleep?", "The brain stops working completely", "The body stops using energy", "The brain processes information", "People forget what they learned", "C"),
+                new McQuestion("According to the passage, all of the following are true EXCEPT:", "Sleep helps memory and learning", "Lack of sleep may cause concentration problems", "Deep sleep helps repair the body", "Sleep has no connection to health problems", "D"),
+                new McQuestion("Why does the author mention REM sleep?", "To describe a stage related to dreaming", "To explain how to fall asleep faster", "To show that REM sleep is dangerous", "To compare sleep with exercise", "A"),
+            }
+        },
+        new AcademicPassage
+        {
+            Text = @"Urban parks are important features of modern cities. These green spaces provide residents with opportunities to relax, exercise, and spend time outdoors. In crowded urban environments, parks often serve as valuable places where people can escape from noise and pollution.
+
+Studies have shown that access to parks can improve both physical and mental health. For example, people who walk or jog in parks often experience lower stress levels and better cardiovascular health. Children who play in natural environments may also develop stronger creativity and social skills.
+
+Urban parks also provide environmental benefits. Trees and plants help clean the air by absorbing pollutants and producing oxygen. They also provide habitats for birds and insects, supporting biodiversity within cities.
+
+Because of these advantages, many city planners now emphasize the importance of creating and maintaining parks. Well-designed parks can greatly improve the quality of life for urban residents.",
+            Questions = new()
+            {
+                new McQuestion("What is the passage mainly about?", "The history of city parks", "The benefits of urban parks", "The problems of living in cities", "The design of playground equipment", "B"),
+                new McQuestion("The word \"residents\" in the passage is closest in meaning to", "visitors", "workers", "people who live in a place", "tourists", "C"),
+                new McQuestion("According to the passage, parks can help people", "reduce stress", "avoid exercise", "increase pollution", "work longer hours", "A"),
+                new McQuestion("According to the passage, all of the following are true EXCEPT:", "Parks provide environmental benefits", "Trees help improve air quality", "Parks increase city pollution", "Parks support biodiversity", "C"),
+                new McQuestion("Why does the author mention children playing in natural environments?", "To explain a benefit of parks", "To criticize city schools", "To describe playground safety", "To compare children and adults", "A"),
+            }
+        },
+        new AcademicPassage
+        {
+            Text = @"Renewable energy sources such as solar and wind power are becoming increasingly important as societies seek alternatives to fossil fuels. Unlike coal, oil, and natural gas, renewable energy sources produce little or no greenhouse gas emissions, making them essential tools in combating climate change.
+
+Solar energy harnesses the power of sunlight through photovoltaic panels that convert light into electricity. The technology has improved dramatically over the past decade, with solar panels becoming more efficient and affordable. Many homeowners and businesses now install solar panels to reduce their electricity bills and carbon footprints.
+
+Wind energy is another rapidly growing renewable resource. Wind turbines convert the kinetic energy of moving air into electrical power. Large wind farms, often located in coastal areas or open plains where wind is strongest, can generate enough electricity to power thousands of homes. Offshore wind farms, built in ocean waters, are particularly effective because ocean winds tend to be stronger and more consistent than those on land.
+
+Despite these advantages, renewable energy faces some challenges. Solar and wind power are intermittent — they only generate electricity when the sun shines or the wind blows. This variability requires effective energy storage systems, such as large batteries, to ensure a stable power supply. Additionally, building renewable energy infrastructure requires significant upfront investment, although costs continue to decline as technology advances.",
+            Questions = new()
+            {
+                new McQuestion("What is the main topic of the passage?", "The history of fossil fuels", "The advantages and challenges of renewable energy", "How to build solar panels", "The cost of electricity for homeowners", "B"),
+                new McQuestion("The word \"harnesses\" in paragraph 2 is closest in meaning to", "releases", "wastes", "captures and uses", "avoids", "C"),
+                new McQuestion("According to the passage, why are offshore wind farms particularly effective?", "They are cheaper to build", "Ocean winds are stronger and more consistent", "They require less maintenance", "They do not affect marine life", "B"),
+                new McQuestion("What challenge does the passage mention regarding renewable energy?", "Renewable energy produces too much pollution", "Solar and wind power are intermittent", "Renewable energy is always more expensive than fossil fuels", "There are no suitable locations for wind farms", "B"),
+                new McQuestion("What does the author suggest about the future of renewable energy costs?", "Costs will remain unchanged", "Costs are declining as technology improves", "Costs are becoming prohibitively expensive", "Costs are only relevant for large businesses", "B"),
             }
         },
     };
@@ -615,6 +912,30 @@ Third, regarding the talent pool, the professor points out that remote work crea
     }
 
     public record McQuestion(string Stem, string A, string B, string C, string D, string Answer);
+
+    public record FillInParagraph
+    {
+        public string Paragraph { get; init; } = "";
+        public List<string> Answers { get; init; } = new();
+    }
+
+    public record Notice
+    {
+        public string Text { get; init; } = "";
+        public List<McQuestion> Questions { get; init; } = new();
+    }
+
+    public record SocialMediaPost
+    {
+        public string Text { get; init; } = "";
+        public List<McQuestion> Questions { get; init; } = new();
+    }
+
+    public record AcademicPassage
+    {
+        public string Text { get; init; } = "";
+        public List<McQuestion> Questions { get; init; } = new();
+    }
 
     public record ListeningConv
     {

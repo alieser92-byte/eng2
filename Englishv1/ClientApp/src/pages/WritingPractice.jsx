@@ -16,6 +16,7 @@ function WritingPractice() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [aiPromptText, setAiPromptText] = useState('');
+  const [isLecturePlaying, setIsLecturePlaying] = useState(false);
 
   const integratedPrompts = [
     {
@@ -55,7 +56,22 @@ function WritingPractice() {
     setWordCount(words.length);
   }, [essayContent]);
 
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   const startTask = (type) => {
+    // Stop any ongoing speech
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsLecturePlaying(false);
+    
     setTaskType(type);
     if (type === 'integrated') {
       const randomPrompt = integratedPrompts[Math.floor(Math.random() * integratedPrompts.length)];
@@ -76,6 +92,40 @@ function WritingPractice() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handlePlayLecture = () => {
+    if (isLecturePlaying) {
+      // Stop speaking
+      window.speechSynthesis.cancel();
+      setIsLecturePlaying(false);
+      return;
+    }
+
+    // Start speaking
+    if ('speechSynthesis' in window && currentPrompt.listening) {
+      const utterance = new SpeechSynthesisUtterance(currentPrompt.listening);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.pitch = 1;
+      
+      utterance.onstart = () => {
+        setIsLecturePlaying(true);
+      };
+      
+      utterance.onend = () => {
+        setIsLecturePlaying(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setIsLecturePlaying(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      alert('Tarayıcınız ses sentezlemeyi desteklemiyor.');
+    }
   };
 
   const handleSubmit = () => {
@@ -273,7 +323,12 @@ function WritingPractice() {
                     <h3>🎧 Lecture (Simulation)</h3>
                     <div className="lecture-content">
                       <div className="audio-player">
-                        <button className="play-btn">▶️ Play Lecture</button>
+                        <button 
+                          className="play-btn"
+                          onClick={handlePlayLecture}
+                        >
+                          {isLecturePlaying ? '⏸️ Durdur' : '▶️ Play Lecture'}
+                        </button>
                       </div>
                       <div className="lecture-notes">
                         <p className="note-hint">Gerçek testte lecture dinleyeceksiniz. Şimdilik aşağıdaki içeriği okuyun:</p>

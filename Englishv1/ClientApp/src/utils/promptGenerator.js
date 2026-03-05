@@ -11,7 +11,13 @@ export function generateToeflPrompt(difficulty, sections) {
 Difficulty: ${difficultyLabel}
 Sections: ${sections.join(', ')}
 
-IMPORTANT: Use EXACTLY this format. Each question must have (A), (B), (C), (D) options on separate lines.
+**CRITICAL INSTRUCTIONS:**
+1. Generate ALL sections in ONE single response - DO NOT split into multiple messages
+2. Include ALL content: passages, questions, and answer keys
+3. Use EXACTLY the format specified below
+4. Each question must have (A), (B), (C), (D) options on separate lines
+5. Do NOT ask if you should continue - complete everything in this response
+
 `;
 
   if (sections.includes('Reading')) {
@@ -23,17 +29,28 @@ IMPORTANT: Use EXACTLY this format. Each question must have (A), (B), (C), (D) o
 
 #### Fill in the missing letters in the paragraph (Questions 1-10)
 
-Write a paragraph about an interesting topic. Remove 2-4 letters from 10 different words, replacing them with underscores. Example format:
+Write a paragraph (80-120 words) about an interesting academic topic. Remove 2-4 letters from EXACTLY 10 different words and replace them with underscores.
 
-"The human brain is a complex organ responsible for controlling all bodily functions. It i_ divided in__ several reg____, each wi__ specific ro___. The cerebrum, i__ largest pa__, is invo____ in cogn_____ functions su__ as reasoning."
+**IMPORTANT FORMAT RULES:**
+- Number each blank clearly: (1)___, (2)___, (3)___, etc.
+- Remove 2-4 letters from each word (not just 1 letter)
+- Make sure there are EXACTLY 10 blanks
+- The Answer Key should list ONLY the missing letters (not the full word)
+
+Example:
+"The human brain is a complex organ responsible for controlling all bodily functions. It is (1)divi___ into several regions, each with (2)spe___ roles. The cerebrum, the (3)lar___ part, is involved in cognitive (4)func___ such as reasoning and (5)mem___. The cerebellum (6)coor___ movement and balance. The brain stem (7)reg___ basic life functions like breathing and heart rate. (8)Neur___ transmit signals between brain regions. The brain (9)cons___ about 2% of body weight but uses 20% of the body's (10)ener___."
 
 Answer Key:
-1. s
-2. to
-3. ions
-4. th
-5. les
-[continue to 10]
+1. ded
+2. cific
+3. gest
+4. tions
+5. ory
+6. dinates
+7. ulates
+8. ons
+9. umes
+10. gy
 
 #### Read a notice (Questions 11-12)
 
@@ -109,18 +126,47 @@ Write a 200-300 word academic passage on a topic like science, psychology, or hi
 
 ### Reading Section, Module 2
 
-[Same format as Module 1: Questions 1-10 fill in letters, 11-12 notice, 13-15 social media/email, 16-20 academic passage]
+#### Fill in the missing letters in the paragraph (Questions 1-10)
+
+Write a DIFFERENT paragraph (80-120 words) about a NEW topic. Use the SAME FORMAT as Module 1.
+
+**IMPORTANT:** Number each blank: (1)___, (2)___, up to (10)___. Remove 2-4 letters from each word.
+
+Answer Key should list only the missing letters.
+
+#### Read a notice (Questions 11-12)
+
+Write a different notice with 2 questions (same format as Module 1).
+
+#### Read a social media post (Questions 13-15)
+
+Write a different post with 3 questions (same format as Module 1).
+
+#### Read an Academic Passage (Questions 16-20)
+
+Write a different academic passage with 5 questions (same format as Module 1).
 
 ### Reading Section Answer Key
 
-Module 1:
-1. [letter(s)]
-2. [letter(s)]
-... up to 20
+IMPORTANT: List answers for BOTH modules clearly separated!
 
-Module 2:
-1. [letter(s)]
-... up to 20
+**Reading Section Answer Key (Module 1):**
+1-1. [missing letters only]
+1-2. [missing letters only]
+...
+1-10. [missing letters only]
+1-11. [A/B/C/D]
+...
+1-20. [A/B/C/D]
+
+**Reading Section Answer Key (Module 2):**
+2-1. [missing letters only]
+2-2. [missing letters only]
+...
+2-10. [missing letters only]
+2-11. [A/B/C/D]
+...
+2-20. [A/B/C/D]
 `;
   }
 
@@ -236,14 +282,16 @@ Write a podcast or lecture talk (150-200 words) about psychology, science, or an
 
 ### Listening Section Answer Key
 
-Module 1:
-1. A
-2. C
-... up to 18
+**Listening Section Answer Key (Module 1):**
+1-1. A
+1-2. C
+...
+1-18. [A/B/C/D]
 
-Module 2:
-1. B
-... up to 16
+**Listening Section Answer Key (Module 2):**
+2-1. B
+...
+2-16. [A/B/C/D]
 `;
   }
 
@@ -355,11 +403,19 @@ Interviewer: Good points. Let me ask you one final question. For some time now, 
 
 ---
 
-Generate ALL content for the selected sections. Use the EXACT format shown above.
-- Each multiple choice question MUST have (A), (B), (C), (D) on separate lines
-- Fill in the blanks questions: use underscores for missing letters
-- Provide complete answer keys at the end of each section
-- Make content appropriate for ${difficultyLabel} level`;
+**FINAL INSTRUCTIONS - READ CAREFULLY:**
+
+✅ Generate ALL content for the selected sections IN THIS SINGLE RESPONSE
+✅ Do NOT split into multiple messages or ask if you should continue
+✅ Include EVERYTHING: all passages, questions, options, and answer keys
+✅ Use the EXACT format shown above
+✅ Each multiple choice question MUST have (A), (B), (C), (D) on separate lines
+✅ Fill in the blanks questions: use numbered blanks like (1)___, (2)___, etc.
+✅ Provide complete answer keys at the end of each section
+✅ Make content appropriate for ${difficultyLabel} level
+
+BEGIN GENERATING THE COMPLETE TEST NOW:
+`;
 
   return prompt;
 }

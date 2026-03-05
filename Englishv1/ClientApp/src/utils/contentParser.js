@@ -148,17 +148,91 @@ export function parseListeningContent(content) {
   let currentQuestion = null;
   let currentOptions = [];
   let inListeningSection = false;
+  let inListeningAnswerKey = false;
+  let answerKeyAnswers = [];
   let questionType = 'best-response';
   let conversationLines = [];
+  let currentModule = 1;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
     if (!line) continue;
     
-    // Check if we're in Listening section
-    if (line.includes('## Listening Section') || line.includes('### Listening Section')) {
+    // Specifically detect LISTENING answer key (not Reading/Writing/Speaking)
+    if (!inListeningAnswerKey && (
+      (line.includes('Listening') && line.includes('Answer Key')) ||
+      (line.includes('### Listening Section Answer Key'))
+    )) {
+      inListeningAnswerKey = true;
+      // Check if module is in the same line (e.g., "Listening Section Answer Key (Module 1):")
+      const modMatch = line.match(/Module\s*(\d+)/i);
+      if (modMatch) {
+        currentModule = parseInt(modMatch[1], 10);
+      } else {
+        currentModule = 1; // default to Module 1
+      }
+      console.log(`📋 Entering Listening Answer Key section, Module ${currentModule}`);
+      continue;
+    }
+    
+    // Exit Listening Answer Key when another section's answer key starts
+    if (inListeningAnswerKey) {
+      if ((line.includes('Reading') || line.includes('Writing') || line.includes('Speaking')) && line.includes('Answer Key')) {
+        inListeningAnswerKey = false;
+        console.log('📋 Exiting Listening Answer Key (found other section answer key)');
+        continue;
+      }
+      
+      // Module header inside answer key (e.g., "Module 1:")
+      const moduleHeader = line.match(/^Module\s*(\d+)\s*[:]?/i);
+      if (moduleHeader) {
+        currentModule = parseInt(moduleHeader[1], 10);
+        console.log(`📋 Switching to Module ${currentModule} in answer key`);
+        continue;
+      }
+
+      // Support multiple answer key formats:
+      // 1. "1-11. A" - module-question. answer (module in format)
+      // 2. "11. A" - question. answer (module from context)
+      // 3. "1. A" - question. answer (simple format)
+      const ansMatch = line.match(/^(?:(\d+)-)?(\d+)\.\s*\(?([A-Da-d])\)?\.?/);
+      if (ansMatch) {
+        const moduleFromFormat = ansMatch[1] ? parseInt(ansMatch[1], 10) : currentModule;
+        const questionNum = parseInt(ansMatch[2], 10);
+        const answerLetter = ansMatch[3].toUpperCase();
+        
+        const entry = { 
+          num: questionNum, 
+          module: moduleFromFormat, 
+          answer: answerLetter 
+        };
+        answerKeyAnswers.push(entry);
+        console.log(`📋 Answer key entry: Module ${entry.module}, Q${entry.num} = ${entry.answer} (format match: ${line})`);
+        continue;
+      }
+      
+      // Exit on new major section (not answer key related)
+      if (line.startsWith('## ') && !line.includes('Answer Key')) {
+        inListeningAnswerKey = false;
+        console.log('📋 Exiting Listening Answer Key (new section started)');
+      }
+      continue;
+    }
+    
+    // Check if we're in Listening section (skip answer key headers)
+    if (line.includes('Listening Section') && !line.includes('Answer Key')) {
       inListeningSection = true;
+      // Check for module number in header
+      const modMatch = line.match(/Module\s*(\d+)/i);
+      if (modMatch) {
+        currentModule = parseInt(modMatch[1], 10);
+        console.log(`📂 Entered Listening Section - Module ${currentModule}`);
+      } else {
+        // Default to Module 1 if no module specified
+        currentModule = 1;
+        console.log(`📂 Entered Listening Section - defaulting to Module 1`);
+      }
       continue;
     }
     
@@ -168,11 +242,6 @@ export function parseListeningContent(content) {
     }
     
     if (!inListeningSection) continue;
-    
-    // Skip Answer Key section
-    if (line.includes('### Listening Section Answer Key') || line.startsWith('Module 1:') || line.startsWith('Module 2:')) {
-      continue;
-    }
     
     // Detect section headers
     if (line.startsWith('#### ')) {
@@ -200,8 +269,15 @@ export function parseListeningContent(content) {
       continue;
     }
     
-    // Skip module headers
-    if (line.startsWith('### ')) continue;
+    // Handle module headers (both ### and ####)
+    if ((line.startsWith('### ') || line.startsWith('#### ')) && line.includes('Module')) {
+      const modMatch = line.match(/Module\s*(\d+)/i);
+      if (modMatch) {
+        currentModule = parseInt(modMatch[1], 10);
+        console.log(`📂 Detected Module ${currentModule} in question section`);
+      }
+      continue;
+    }
     
     // Detect question number
     const questionMatch = line.match(/^(\d+)\.\s+(.+)$/);
@@ -218,19 +294,21 @@ export function parseListeningContent(content) {
       currentQuestion = {
         type: questionType,
         number: parseInt(questionMatch[1]),
+        module: currentModule,
         questionText: questionMatch[2],
         conversation: ''
       };
       currentOptions = [];
       
-      // For best-response, the conversation is on the same line or next line
+      console.log(`📝 Parsed question: Module ${currentModule}, Q${currentQuestion.number}`);
+      
       if (questionType === 'best-response') {
         conversationLines = [];
       }
       continue;
     }
     
-    // Detect conversation lines (Woman:, Man:, Student:, Professor:, etc.)
+    // Detect conversation lines
     if (line.match(/^(Woman|Man|Student|Professor|Interviewer|Trainer):/)) {
       if (currentQuestion) {
         conversationLines.push(line);
@@ -262,6 +340,29 @@ export function parseListeningContent(content) {
       options: currentOptions
     });
   }
+
+  // Map answer keys to questions
+  if (answerKeyAnswers.length > 0) {
+    console.log(`🔗 Mapping ${answerKeyAnswers.length} answers to ${questions.length} questions`);
+    console.log('📋 Answer key data:', answerKeyAnswers);
+    console.log('📝 Questions data (first 3):', questions.slice(0, 3).map(q => ({ num: q.number, module: q.module, hasCorrect: !!q.correctAnswer })));
+    
+    answerKeyAnswers.forEach(({ num, module, answer }) => {
+      const q = questions.find(x => x.number === num && x.module === module);
+      if (q) {
+        q.correctAnswer = answer;
+        console.log(`✅ Mapped answer for Module ${module}, Q${num}: ${answer}`);
+      } else {
+        console.warn(`⚠️ Could not find question for Module ${module}, Q${num}`);
+      }
+    });
+    
+    // Count how many questions have answers
+    const withAnswers = questions.filter(q => q.correctAnswer).length;
+    console.log(`✅ ${withAnswers}/${questions.length} questions have correct answers`);
+  }
+  
+  console.log('📝 Parsed questions:', questions.length, 'with answers:', answerKeyAnswers.length);
   
   return questions;
 }
