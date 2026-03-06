@@ -20,10 +20,11 @@ function parseAIContent(content, sectionName) {
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    const cleanLine = line.replace(/\*\*/g, ''); // Remove markdown bold formatting (**)
     if (!line) continue;
     
     // Detect final answer key section - ONLY for current section (e.g., "### Reading Section Answer Key")
-    if (line.includes('Answer Key') && line.includes(sectionKeyword)) {
+    if (cleanLine.includes('Answer Key') && cleanLine.includes(sectionKeyword)) {
       inFinalAnswerKey = true;
       // Check if module is mentioned in the same line (e.g., "Module 1" or "Module 2")
       if (line.includes('Module 1') && !line.includes('Module 2')) {
@@ -37,14 +38,14 @@ function parseAIContent(content, sectionName) {
     }
     
     // Exit answer key if we hit another section's answer key
-    if (inFinalAnswerKey && line.includes('Answer Key') && !line.includes(sectionKeyword)) {
+    if (inFinalAnswerKey && cleanLine.includes('Answer Key') && !cleanLine.includes(sectionKeyword)) {
       inFinalAnswerKey = false;
       answerKeyModule = null;
       continue;
     }
     
     // Exit if we hit a new major section (##)
-    if (inFinalAnswerKey && line.startsWith('## ') && !line.includes('Answer Key')) {
+    if (inFinalAnswerKey && line.startsWith('## ') && !cleanLine.includes('Answer Key')) {
       inFinalAnswerKey = false;
       answerKeyModule = null;
       continue;
@@ -71,7 +72,7 @@ function parseAIContent(content, sectionName) {
     }
     
     // Also capture inline answer keys (after fill-in sections) - only for Reading section
-    if (sectionKeyword === 'Reading' && line === 'Answer Key:' && !inFinalAnswerKey) {
+    if (sectionKeyword === 'Reading' && (cleanLine === 'Answer Key:' || cleanLine.startsWith('Answer Key')) && !inFinalAnswerKey) {
       // Look ahead for module context
       let moduleForInline = null;
       for (let j = i - 1; j >= 0 && j > i - 50; j--) {
@@ -113,11 +114,12 @@ function parseAIContent(content, sectionName) {
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    const cleanLine = line.replace(/\*\*/g, ''); // Remove markdown bold formatting
     
     if (!line) continue;
     
     // Skip final answer key section completely
-    if (line.includes('Answer Key') && (line.includes('Reading') || line.includes('Listening') || line.includes('Writing'))) {
+    if (cleanLine.includes('Answer Key') && (cleanLine.includes('Reading') || cleanLine.includes('Listening') || cleanLine.includes('Writing'))) {
       break; // Stop parsing at final answer key
     }
     
@@ -164,7 +166,7 @@ function parseAIContent(content, sectionName) {
     }
     
     // Handle inline Answer Key (for fill-in questions)
-    if (line === 'Answer Key:' || line.startsWith('Answer Key')) {
+    if (cleanLine === 'Answer Key:' || cleanLine.startsWith('Answer Key')) {
       skipAnswerKeyLines = true;
       
       // Create fill-in questions if we have a passage
@@ -210,11 +212,15 @@ function parseAIContent(content, sectionName) {
     
     // Collect passage text for other sections
     if ((currentSection === 'notice' || currentSection === 'social-media' || currentSection === 'academic') && 
-        !line.match(/^\d+\./) && !line.match(/^\s*\([A-D]\)/) && !line.startsWith('**') && 
-        !line.startsWith('##') && !line.includes('Read a') && !line.includes('Fill in')) {
-      const cleanLine = line.replace(/\*\*/g, '');
-      currentPassage += (currentPassage ? '\n' : '') + cleanLine;
-      lastPassage = currentPassage;
+        !line.match(/^\d+\./) && // Not a question number
+        !line.match(/^\s*\([A-D]\)/) && // Not an option
+        !line.startsWith('####') && !line.startsWith('###') && !line.startsWith('##')) { // Not a markdown header
+      // Clean markdown formatting but include the line
+      const cleanLine = line.replace(/\*\*/g, '').replace(/^[""]|[""]$/g, '').trim();
+      if (cleanLine) { // Only add non-empty lines
+        currentPassage += (currentPassage ? '\n' : '') + cleanLine;
+        lastPassage = currentPassage;
+      }
       continue;
     }
     
@@ -263,10 +269,26 @@ function parseAIContent(content, sectionName) {
     });
   }
   
+  // Calculate global question numbers across modules
+  // Module 1 questions get their original numbers (1-20 for Reading, 1-18 for Listening)
+  // Module 2 questions get offset by Module 1's count
+  const module1Questions = questions.filter(q => q.module === 1);
+  const module1Count = module1Questions.length;
+  
+  questions.forEach(q => {
+    if (q.module === 1) {
+      q.globalNumber = q.number;
+    } else if (q.module === 2) {
+      q.globalNumber = module1Count + q.number;
+    } else {
+      q.globalNumber = q.number; // For sections without modules (Speaking, Writing)
+    }
+  });
+  
   // Debug: Log correct answers and questions
   console.log('DEBUG - correctAnswers:', JSON.stringify(correctAnswers, null, 2));
   console.log('DEBUG - questions count:', questions.length);
-  console.log('DEBUG - first 3 questions:', questions.slice(0, 3).map(q => ({ num: q.number, module: q.module, correctAnswer: q.correctAnswer })));
+  console.log('DEBUG - first 3 questions:', questions.slice(0, 3).map(q => ({ num: q.number, module: q.module, globalNum: q.globalNumber, correctAnswer: q.correctAnswer })));
   
   return questions;
 }
@@ -494,7 +516,7 @@ function TestContent() {
         <div className="test-info">
           <h2>{section} Section</h2>
           <span className="question-counter">
-            Question {parsedQuestions[currentQuestion]?.number || currentQuestion + 1} / {parsedQuestions.length}
+            Question {parsedQuestions[currentQuestion]?.globalNumber || currentQuestion + 1} / {parsedQuestions.length}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -580,7 +602,7 @@ function TestContent() {
 
         <div className="question-panel">
           <div className="question-card">
-            <h4>Question {parsedQuestions[currentQuestion]?.number || currentQuestion + 1}</h4>
+            <h4>Question {parsedQuestions[currentQuestion]?.globalNumber || currentQuestion + 1}</h4>
             
             {parsedQuestions.length > 0 && parsedQuestions[currentQuestion] ? (
               <>

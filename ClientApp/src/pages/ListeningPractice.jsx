@@ -289,7 +289,7 @@ const ListeningPractice = () => {
     <motion.div className="listening-practice" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div className="test-header">
         <div className="test-progress">
-          <span>Soru {currentQuestion + 1} / {parsedQuestions.length}</span>
+          <span>Soru {parsedQuestions[currentQuestion]?.globalNumber || currentQuestion + 1} / {parsedQuestions.length}</span>
           <div className="progress-bar"><div className="progress-fill" style={{ width: `${((currentQuestion + 1) / parsedQuestions.length) * 100}%` }}></div></div>
         </div>
         <div className={`timer ${timeLeft < 300 ? 'warning' : ''}`}>⏱️ {formatTime(timeLeft)}</div>

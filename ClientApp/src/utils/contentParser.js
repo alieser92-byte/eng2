@@ -362,7 +362,27 @@ export function parseListeningContent(content) {
     console.log(`✅ ${withAnswers}/${questions.length} questions have correct answers`);
   }
   
+  // Calculate global question numbers across modules
+  // Module 1 questions get their original numbers (1-18)
+  // Module 2 questions get offset by Module 1's count (19-36)
+  const module1Questions = questions.filter(q => q.module === 1);
+  const module2Questions = questions.filter(q => q.module === 2);
+  const module1Count = module1Questions.length;
+  
+  console.log(`📊 LISTENING SUMMARY: Module 1 = ${module1Count} questions, Module 2 = ${module2Questions.length} questions, Total = ${questions.length}`);
+  
+  questions.forEach(q => {
+    if (q.module === 1) {
+      q.globalNumber = q.number;
+    } else if (q.module === 2) {
+      q.globalNumber = module1Count + q.number;
+    } else {
+      q.globalNumber = q.number; // For sections without modules
+    }
+  });
+  
   console.log('📝 Parsed questions:', questions.length, 'with answers:', answerKeyAnswers.length);
+  console.log('📝 Global numbers assigned - Module 1 count:', module1Count);
   
   return questions;
 }
@@ -500,6 +520,11 @@ export function parseWritingContent(content) {
     });
   }
   
+  // Add globalNumber for consistency (Writing has no modules, so globalNumber = number)
+  questions.forEach(q => {
+    q.globalNumber = q.number;
+  });
+  
   return questions;
 }
 
@@ -515,63 +540,97 @@ export function parseSpeakingContent(content) {
   let inSpeakingSection = false;
   let questionType = 'listen-repeat';
   let repeatCount = 0;
-  let interviewCount = 0;
+  let interviewCount = 7; // Interview questions start at 8
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    let line = lines[i].trim();
     
     if (!line) continue;
     
-    // Check if we're in Speaking section
-    if (line.includes('## Speaking Section')) {
+    // Remove markdown formatting
+    const cleanLine = line.replace(/\*\*/g, '').trim();
+    
+    // Check if we're in Speaking section - more flexible matching
+    if (cleanLine.match(/^#{0,3}\s*speaking/i) || 
+        cleanLine.toLowerCase().includes('speaking section')) {
       inSpeakingSection = true;
+      console.log('✅ Entered Speaking Section');
       continue;
+    }
+    
+    // Exit on other major sections
+    if (inSpeakingSection && 
+        (cleanLine.match(/^#{1,3}\s*(writing|reading|listening)/i) || 
+         cleanLine.includes('Score:') ||
+         cleanLine.includes('Answer Key'))) {
+      console.log('🛑 Exiting Speaking Section');
+      break;
     }
     
     if (!inSpeakingSection) continue;
     
     // Detect section headers
-    if (line.startsWith('### ')) {
-      if (line.includes('Listen and Repeat')) {
+    if (cleanLine.startsWith('###') || cleanLine.startsWith('####')) {
+      if (cleanLine.match(/listen\s+and\s+repeat/i)) {
         questionType = 'listen-repeat';
         repeatCount = 0;
-      } else if (line.includes('Take an Interview')) {
+        console.log('📢 Section: Listen and Repeat');
+      } else if (cleanLine.match(/interview|take an interview/i)) {
         questionType = 'interview';
-        interviewCount = 7; // Start from 8
+        interviewCount = 7; // Next question will be 8
+        console.log('📢 Section: Interview');
       }
       continue;
     }
     
     // Handle Listen and Repeat questions
     if (questionType === 'listen-repeat') {
-      const trainerMatch = line.match(/^Trainer:\s*"?(.+?)"?$/);
+      // Match patterns like:
+      // 1. Trainer: "We have a variety of wildlife."
+      // Trainer: "We have a variety of wildlife."
+      const trainerMatch = cleanLine.match(/^(?:\d+\.\s*)?Trainer:\s*[""]?(.+?)[""]?\s*$/);
       if (trainerMatch) {
         repeatCount++;
+        const prompt = trainerMatch[1].replace(/[""]/g, '').trim();
         questions.push({
           type: 'listen-repeat',
           number: repeatCount,
-          prompt: trainerMatch[1].replace(/"/g, ''),
+          prompt: prompt,
           instructions: 'Listen to the sentence and repeat it clearly.'
         });
+        console.log(`✅ Listen-Repeat Q${repeatCount}: ${prompt.substring(0, 30)}...`);
         continue;
       }
     }
     
     // Handle Interview questions
     if (questionType === 'interview') {
-      const interviewMatch = line.match(/^Interviewer:\s*(.+)$/);
+      // Match patterns like:
+      // 8. Interviewer: Thank you for speaking...
+      // Interviewer: Thank you for speaking...
+      // **Interviewer:** Thank you for speaking...
+      const interviewMatch = cleanLine.match(/^(?:\d+\.\s*)?Interviewer:\s*(.+)$/);
       if (interviewMatch) {
         interviewCount++;
+        const prompt = interviewMatch[1].trim();
         questions.push({
           type: 'interview',
           number: interviewCount,
-          prompt: interviewMatch[1],
+          prompt: prompt,
           instructions: 'Listen to the question and respond in your own words.'
         });
+        console.log(`✅ Interview Q${interviewCount}: ${prompt.substring(0, 30)}...`);
         continue;
       }
     }
   }
+  
+  console.log(`📊 Total Speaking Questions Parsed: ${questions.length}`);
+  
+  // Add globalNumber for consistency (Speaking has no modules, so globalNumber = number)
+  questions.forEach(q => {
+    q.globalNumber = q.number;
+  });
   
   return questions;
 }

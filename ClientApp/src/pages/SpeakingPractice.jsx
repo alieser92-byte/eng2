@@ -29,6 +29,9 @@ function SpeakingPractice() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isPromptPlaying, setIsPromptPlaying] = useState(false);
+  const [showEvalModal, setShowEvalModal] = useState(false);
+  const [evalPrompt, setEvalPrompt] = useState('');
+  const [evaluationResults, setEvaluationResults] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -119,15 +122,47 @@ function SpeakingPractice() {
 
       recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'aborted' || event.error === 'no-speech') {
-          // Normal errors, don't show
+        if (event.error === 'aborted') {
+          // User stopped recording intentionally, ignore
           return;
         }
+        if (event.error === 'no-speech') {
+          // No speech detected - this will trigger onend, handle cleanup there
+          console.log('No speech detected, will handle in onend');
+          return;
+        }
+        // For other errors, log but don't break the recording
+        console.error('Speech recognition error (non-critical):', event.error);
       };
 
       recognition.onend = () => {
-        console.log('Recognition ended - NOT restarting');
-        // Explicitly DO NOT restart
+        console.log('Recognition ended - isRecording:', isRecordingRef.current);
+        
+        // If we're still supposed to be recording, this is an unexpected stop
+        // (e.g., due to no-speech timeout). Clean up everything.
+        if (isRecordingRef.current) {
+          console.log('Unexpected recognition end, cleaning up recording state');
+          
+          // Stop media recorder
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            try {
+              mediaRecorderRef.current.stop();
+            } catch (e) {
+              console.log('Error stopping mediaRecorder:', e);
+            }
+          }
+          
+          // Stop audio tracks
+          if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach(track => track.stop());
+            audioStreamRef.current = null;
+          }
+          
+          // Reset recording state
+          setIsRecording(false);
+          isRecordingRef.current = false;
+          console.log('Recording state reset due to recognition end');
+        }
       };
 
       recognitionRef.current = recognition;
@@ -170,8 +205,6 @@ function SpeakingPractice() {
       return;
     }
     
-    isRecordingRef.current = true; // Set IMMEDIATELY to prevent double-clicks
-    setIsRecording(true);
     console.log('=== STARTING RECORDING ===');
     
     try {
@@ -208,24 +241,41 @@ function SpeakingPractice() {
       mediaRecorder.start();
       console.log('MediaRecorder started');
       
-      // Start speech recognition - don't catch errors, let them fail
+      // Start speech recognition
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
           console.log('Recognition started');
         } catch (e) {
           console.log('Recognition start error (may already be running):', e);
+          // If recognition fails to start, it's not critical - continue with MediaRecorder only
         }
       }
       
+      // Only set recording state to true AFTER everything started successfully
+      isRecordingRef.current = true;
+      setIsRecording(true);
       setTranscript(''); // Clear previous transcript
       console.log('Recording fully started, transcript cleared');
     } catch (error) {
       console.error('Error starting recording:', error);
       
-      // Reset states on error
+      // Reset states on error (in case something was partially started)
       setIsRecording(false);
       isRecordingRef.current = false;
+      
+      // Clean up any partially started resources
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(track => track.stop());
+        audioStreamRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.log('Error stopping mediaRecorder during cleanup:', e);
+        }
+      }
       
       // More specific error messages
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
@@ -381,6 +431,69 @@ function SpeakingPractice() {
     setIsFinished(true);
   };
 
+  const handleEvaluateAllAnswers = () => {
+    // Generate prompt for all answered questions
+    const answeredQuestions = Object.entries(answers).map(([idx, answer]) => {
+      const q = parsedQuestions[parseInt(idx)];
+      return `**Question ${q.globalNumber || q.number}** (${q.type === 'listen-repeat' ? 'Listen and Repeat' : 'Interview'}):
+**Prompt:** ${q.prompt}
+**Student Response:** ${answer}
+`;
+    }).join('\n---\n\n');
+
+    const fullPrompt = `You are an expert TOEFL Speaking evaluator. Evaluate the following speaking responses:
+
+${answeredQuestions}
+
+For each response, provide:
+1. **Score (0-4)**: Rate delivery, language use, and topic development
+2. **Feedback**: Specific comments on pronunciation, grammar, vocabulary, and content
+3. **Improvements**: Actionable suggestions
+
+Return your evaluation in this JSON format:
+{
+  "overallScore": 24,
+  "responses": [
+    {
+      "questionNumber": 1,
+      "score": 3.5,
+      "delivery": "Clear pronunciation with minor hesitations...",
+      "languageUse": "Good vocabulary range, some grammatical errors...",
+      "topicDevelopment": "Well-structured response...",
+      "improvements": ["Practice reduced hesitation", "Review past tense usage"]
+    }
+  ],
+  "overallFeedback": "Your speaking shows good progress..."
+}`;
+
+    setEvalPrompt(fullPrompt);
+    setShowEvalModal(true);
+  };
+
+  const handleEvalResponse = (aiContent) => {
+    try {
+      const jsonStart = aiContent.indexOf('{');
+      const jsonEnd = aiContent.lastIndexOf('}');
+      
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        const jsonStr = aiContent.substring(jsonStart, jsonEnd + 1);
+        const evalData = JSON.parse(jsonStr);
+        setEvaluationResults(evalData);
+      } else {
+        // Fallback: parse as text
+        setEvaluationResults({
+          overallScore: 20,
+          overallFeedback: aiContent,
+          responses: []
+        });
+      }
+      setShowEvalModal(false);
+    } catch (error) {
+      console.error('Error parsing evaluation:', error);
+      alert('AI yanıtı işlenirken hata oluştu. Lütfen tekrar deneyin.');
+    }
+  };
+
   // Text-to-Speech ile prompt'u oku
   const handlePlayPrompt = () => {
     const question = parsedQuestions[currentQuestionIndex];
@@ -509,26 +622,85 @@ function SpeakingPractice() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <div className="results-container">
-            <h2>Speaking Testi Tamamlandı!</h2>
-            <div className="results-stats">
-              <div className="stat">
-                <span className="stat-value">{answeredCount}</span>
-                <span className="stat-label">Cevaplanan Soru</span>
+          <div className="results-container" style={{ maxWidth: '900px', margin: '2rem auto', padding: '2rem', background: 'white', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>🎉 Speaking Bölümü Tamamlandı!</h2>
+            
+            <div className="results-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+              <div className="stat" style={{ padding: '1.5rem', background: '#e3f2fd', borderRadius: '12px', textAlign: 'center' }}>
+                <span className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2196F3', display: 'block' }}>{answeredCount}</span>
+                <span className="stat-label" style={{ fontSize: '0.9rem', color: '#666' }}>Cevaplanan Soru</span>
               </div>
-              <div className="stat">
-                <span className="stat-value">{parsedQuestions.length}</span>
-                <span className="stat-label">Toplam Soru</span>
+              <div className="stat" style={{ padding: '1.5rem', background: '#f3e5f5', borderRadius: '12px', textAlign: 'center' }}>
+                <span className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: '#9C27B0', display: 'block' }}>{parsedQuestions.length}</span>
+                <span className="stat-label" style={{ fontSize: '0.9rem', color: '#666' }}>Toplam Soru</span>
               </div>
-              <div className="stat">
-                <span className="stat-value">{percentage}%</span>
-                <span className="stat-label">Tamamlanma</span>
+              <div className="stat" style={{ padding: '1.5rem', background: '#e8f5e9', borderRadius: '12px', textAlign: 'center' }}>
+                <span className="stat-value" style={{ fontSize: '2rem', fontWeight: 'bold', color: '#4CAF50', display: 'block' }}>{percentage}%</span>
+                <span className="stat-label" style={{ fontSize: '0.9rem', color: '#666' }}>Tamamlanma</span>
               </div>
             </div>
-            <button onClick={() => window.location.href = '/test-generator'} className="btn-primary">
+
+            {answeredCount > 0 && !evaluationResults && (
+              <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107' }}>
+                <p style={{ margin: 0, fontSize: '0.95rem', color: '#856404' }}>
+                  💡 Cevaplarınızı AI ile değerlendirin ve detaylı geri bildirim alın!
+                </p>
+                <button 
+                  onClick={handleEvaluateAllAnswers}
+                  className="btn-primary"
+                  style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '1rem', background: '#667eea', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  🤖 Cevapları AI ile Değerlendir
+                </button>
+              </div>
+            )}
+
+            {evaluationResults && (
+              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f8f9fa', borderRadius: '12px' }}>
+                <h3 style={{ marginBottom: '1rem', color: '#667eea' }}>📊 AI Değerlendirme Sonuçları</h3>
+                <div style={{ padding: '1rem', background: 'white', borderRadius: '8px', marginBottom: '1rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#667eea' }}>{evaluationResults.overallScore}/30</div>
+                  <div style={{ fontSize: '1rem', color: '#666' }}>Genel Puan</div>
+                </div>
+                
+                {evaluationResults.overallFeedback && (
+                  <div style={{ padding: '1rem', background: 'white', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <h4 style={{ marginBottom: '0.5rem', color: '#333' }}>📝 Genel Değerlendirme</h4>
+                    <p style={{ margin: 0, lineHeight: '1.6', color: '#666' }}>{evaluationResults.overallFeedback}</p>
+                  </div>
+                )}
+
+                {evaluationResults.responses?.map((resp, idx) => (
+                  <div key={idx} style={{ padding: '1rem', background: 'white', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <h4 style={{ marginBottom: '0.75rem', color: '#667eea' }}>Soru {resp.questionNumber} - Puan: {resp.score}/4</h4>
+                    {resp.delivery && <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}><strong>🎤 Delivery:</strong> {resp.delivery}</p>}
+                    {resp.languageUse && <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}><strong>📚 Language Use:</strong> {resp.languageUse}</p>}
+                    {resp.topicDevelopment && <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}><strong>💡 Topic Development:</strong> {resp.topicDevelopment}</p>}
+                    {resp.improvements && resp.improvements.length > 0 && (
+                      <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#e8f5e9', borderRadius: '6px' }}>
+                        <strong style={{ fontSize: '0.9rem', color: '#2e7d32' }}>✨ İyileştirme Önerileri:</strong>
+                        <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+                          {resp.improvements.map((imp, i) => <li key={i} style={{ fontSize: '0.85rem', color: '#555' }}>{imp}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={() => window.location.href = '/test-generator'} className="btn-primary" style={{ width: '100%', padding: '12px', fontSize: '1rem' }}>
               Yeni Test Oluştur
             </button>
           </div>
+          
+          <AIPromptModal
+            isOpen={showEvalModal}
+            onClose={() => setShowEvalModal(false)}
+            prompt={evalPrompt}
+            onSubmitResponse={handleEvalResponse}
+            title="🎤 AI Değerlendirme"
+          />
         </motion.div>
       );
     }
@@ -589,7 +761,7 @@ function SpeakingPractice() {
       >
         <div className="test-header">
           <div className="test-progress">
-            <span>Soru {currentQuestionIndex + 1} / {parsedQuestions.length}</span>
+            <span>Soru {parsedQuestions[currentQuestionIndex]?.globalNumber || currentQuestionIndex + 1} / {parsedQuestions.length}</span>
             <div className="progress-bar">
               <div 
                 className="progress-fill" 
@@ -609,7 +781,7 @@ function SpeakingPractice() {
             </div>
             
             <div className="question-card">
-              <h3>Soru {question?.number}</h3>
+              <h3>Soru {question?.globalNumber || question?.number}</h3>
               <p className="question-instructions">{question?.instructions}</p>
               
               <div className="prompt-box">
@@ -693,6 +865,23 @@ function SpeakingPractice() {
             <span className="answered-count">
               {Object.keys(answers).length} / {parsedQuestions.length} cevaplandı
             </span>
+            {Object.keys(answers).length > 0 && (
+              <button 
+                onClick={handleEvaluateAllAnswers}
+                style={{ 
+                  marginLeft: '1rem', 
+                  padding: '0.5rem 1rem', 
+                  background: '#667eea', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                🤖 Cevapları Puanla
+              </button>
+            )}
           </div>
 
           {currentQuestionIndex === parsedQuestions.length - 1 ? (
@@ -705,6 +894,14 @@ function SpeakingPractice() {
             </button>
           )}
         </div>
+        
+        <AIPromptModal
+          isOpen={showEvalModal}
+          onClose={() => setShowEvalModal(false)}
+          prompt={evalPrompt}
+          onSubmitResponse={handleEvalResponse}
+          title="🎤 AI Değerlendirme"
+        />
       </motion.div>
     );
   }
