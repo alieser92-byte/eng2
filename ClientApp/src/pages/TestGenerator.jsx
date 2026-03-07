@@ -112,6 +112,8 @@ function TestGenerator() {
       if (generatedTest) {
         sessionStorage.setItem('currentTest', JSON.stringify(generatedTest));
         sessionStorage.setItem('currentSection', sectionName);
+        // Store all sections order for sequential access
+        sessionStorage.setItem('sectionsOrder', JSON.stringify(sections));
       }
       window.location.href = routes[sectionName];
     } else {

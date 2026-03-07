@@ -306,6 +306,25 @@
   cursor: not-allowed;
 }
 
+.nav-btn.disabled {
+  opacity: 0.8 !important;
+  cursor: not-allowed !important;
+  background: #f5f5f5 !important;
+  color: #666 !important;
+  border: 2px solid #ccc !important;
+  transform: none !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+}
+
+.nav-btn.disabled:hover {
+  background: #f5f5f5 !important;
+  color: #666 !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.8 !important;
+}
+
 .nav-btn.primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;

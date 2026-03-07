@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+  import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import AIPromptModal from '../components/AIPromptModal';
@@ -431,6 +431,34 @@ function SpeakingPractice() {
     setIsFinished(true);
   };
 
+  // Auto-advance to next section after showing results
+  useEffect(() => {
+    if (isFinished && parsedQuestions.length > 0) {
+      const sectionsOrder = JSON.parse(sessionStorage.getItem('sectionsOrder') || '[]');
+      const currentSectionIndex = sectionsOrder.indexOf('Speaking');
+      
+      if (currentSectionIndex !== -1 && currentSectionIndex < sectionsOrder.length - 1) {
+        const nextSection = sectionsOrder[currentSectionIndex + 1];
+        const routes = {
+          'Reading': '/test-content',
+          'Listening': '/listening-practice', 
+          'Speaking': '/speaking-practice',
+          'Writing': '/writing-practice'
+        };
+        
+        if (routes[nextSection]) {
+          // Wait 3 seconds to show results, then navigate
+          const timer = setTimeout(() => {
+            sessionStorage.setItem('currentSection', nextSection);
+            window.location.href = routes[nextSection];
+          }, 3000);
+          
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [isFinished, parsedQuestions.length]);
+
   const handleEvaluateAllAnswers = () => {
     // Generate prompt for all answered questions
     const answeredQuestions = Object.entries(answers).map(([idx, answer]) => {
@@ -852,48 +880,17 @@ Return your evaluation in this JSON format:
           </div>
         </div>
 
-        <div className="test-navigation">
-          <button 
-            onClick={handlePreviousQuestion} 
-            disabled={currentQuestionIndex === 0}
-            className="btn-nav"
-          >
-            ← Önceki
-          </button>
-          
-          <div className="nav-center">
-            <span className="answered-count">
-              {Object.keys(answers).length} / {parsedQuestions.length} cevaplandı
-            </span>
-            {Object.keys(answers).length > 0 && (
-              <button 
-                onClick={handleEvaluateAllAnswers}
-                style={{ 
-                  marginLeft: '1rem', 
-                  padding: '0.5rem 1rem', 
-                  background: '#667eea', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '6px', 
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
-                🤖 Cevapları Puanla
-              </button>
+          <div className="test-navigation">
+            <button onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0} className="btn-nav">← Önceki</button>
+            <div className="nav-center">
+              <span className="answered-count">{Object.keys(answers).length} / {parsedQuestions.length} cevaplandı</span>
+            </div>
+            {currentQuestionIndex === parsedQuestions.length - 1 ? (
+              <button onClick={handleFinishTest} className="btn-finish">Testi Bitir</button>
+            ) : (
+              <button onClick={handleNextQuestion} className="btn-nav">Sonraki →</button>
             )}
           </div>
-
-          {currentQuestionIndex === parsedQuestions.length - 1 ? (
-            <button onClick={handleFinishTest} className="btn-finish">
-              Testi Bitir
-            </button>
-          ) : (
-            <button onClick={handleNextQuestion} className="btn-nav">
-              Sonraki →
-            </button>
-          )}
-        </div>
         
         <AIPromptModal
           isOpen={showEvalModal}

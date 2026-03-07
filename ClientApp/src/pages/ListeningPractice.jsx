@@ -103,7 +103,37 @@ const ListeningPractice = () => {
     }
   };
 
-  const handleFinish = () => setIsFinished(true);
+  const handleFinish = () => {
+    setIsFinished(true);
+  };
+
+  // Auto-advance to next section after showing results
+  useEffect(() => {
+    if (isFinished && parsedQuestions.length > 0) {
+      const sectionsOrder = JSON.parse(sessionStorage.getItem('sectionsOrder') || '[]');
+      const currentSectionIndex = sectionsOrder.indexOf('Listening');
+      
+      if (currentSectionIndex !== -1 && currentSectionIndex < sectionsOrder.length - 1) {
+        const nextSection = sectionsOrder[currentSectionIndex + 1];
+        const routes = {
+          'Reading': '/test-content',
+          'Listening': '/listening-practice', 
+          'Speaking': '/speaking-practice',
+          'Writing': '/writing-practice'
+        };
+        
+        if (routes[nextSection]) {
+          // Wait 3 seconds to show results, then navigate
+          const timer = setTimeout(() => {
+            sessionStorage.setItem('currentSection', nextSection);
+            window.location.href = routes[nextSection];
+          }, 3000);
+          
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [isFinished, parsedQuestions.length]);
 
   const handlePlayAudio = () => {
     const question = parsedQuestions[currentQuestion];

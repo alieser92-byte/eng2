@@ -387,6 +387,34 @@ function TestContent() {
     setIsFinished(true);
   };
 
+  // Auto-advance to next section after showing results
+  useEffect(() => {
+    if (isFinished && score.total > 0) {
+      const sectionsOrder = JSON.parse(sessionStorage.getItem('sectionsOrder') || '[]');
+      const currentSectionIndex = sectionsOrder.indexOf(section);
+      
+      if (currentSectionIndex !== -1 && currentSectionIndex < sectionsOrder.length - 1) {
+        const nextSection = sectionsOrder[currentSectionIndex + 1];
+        const routes = {
+          'Reading': '/test-content',
+          'Listening': '/listening-practice', 
+          'Speaking': '/speaking-practice',
+          'Writing': '/writing-practice'
+        };
+        
+        if (routes[nextSection]) {
+          // Wait 3 seconds to show results, then navigate
+          const timer = setTimeout(() => {
+            sessionStorage.setItem('currentSection', nextSection);
+            window.location.href = routes[nextSection];
+          }, 3000);
+          
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [isFinished, score, section]);
+
   if (!testData || timeLeft === null) {
     return (
       <div className="test-content">
@@ -744,7 +772,7 @@ function TestContent() {
             <button 
               onClick={handlePrevious} 
               disabled={currentQuestion === 0}
-              className="nav-btn"
+              className={`nav-btn ${currentQuestion === 0 ? 'disabled' : ''}`}
             >
               ← Previous
             </button>
