@@ -26,6 +26,9 @@ function SpeakingPractice() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedStateData, setSavedStateData] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isPromptPlaying, setIsPromptPlaying] = useState(false);
@@ -50,12 +53,10 @@ function SpeakingPractice() {
     ]
   };
 
-  // Check for test mode on mount
   useEffect(() => {
     const storedTest = sessionStorage.getItem('currentTest');
-    const storedSection = sessionStorage.getItem('currentSection');
     
-    if (storedTest && storedSection === 'Speaking') {
+    if (storedTest) {
       const test = JSON.parse(storedTest);
       const speakingSection = test.sections.find(s => s.name === 'Speaking');
       
@@ -68,30 +69,85 @@ function SpeakingPractice() {
         if (questions.length > 0) {
           setParsedQuestions(questions);
         } else {
-          // Fallback mock questions
-          const mockQuestions = [
-            { type: 'listen-repeat', number: 1, prompt: 'We have a variety of wildlife.', instructions: 'Listen and repeat.' },
-            { type: 'listen-repeat', number: 2, prompt: 'Bears, wolves, and large cats are to the right.', instructions: 'Listen and repeat.' },
-            { type: 'interview', number: 8, prompt: 'Do you currently live in a big city, a small town, or a village?', instructions: 'Respond to the question.' }
-          ];
-          setParsedQuestions(mockQuestions);
+          setParsedQuestions([]);
         }
         
         setTestData(speakingSection);
-        setTimeLeft(speakingSection.timeLimit * 60);
+        
+        const savedStateStr = sessionStorage.getItem('testState_Speaking');
+        if (savedStateStr) {
+          const savedState = JSON.parse(savedStateStr);
+          setSavedStateData(savedState);
+          setShowResumePrompt(true);
+        } else {
+          setTimeLeft(speakingSection.timeLimit * 60);
+        }
       }
     }
   }, []);
 
+  useEffect(() => {
+    if (mode === 'test' && isStarted && !isFinished) {
+      const stateToSave = {
+        currentQuestionIndex,
+        answers,
+        timeLeft,
+        evaluationResults
+      };
+      sessionStorage.setItem('testState_Speaking', JSON.stringify(stateToSave));
+    }
+  }, [currentQuestionIndex, answers, timeLeft, isStarted, isFinished, mode, evaluationResults]);
+
+  const handleResumeSession = () => {
+    if (savedStateData) {
+      setCurrentQuestionIndex(savedStateData.currentQuestionIndex || 0);
+      setAnswers(savedStateData.answers || {});
+      setTimeLeft(savedStateData.timeLeft || 0);
+      setEvaluationResults(savedStateData.evaluationResults || null);
+      setIsStarted(true);
+      setShowResumePrompt(false);
+    }
+  };
+
+  const handleRestartSession = () => {
+    sessionStorage.removeItem('testState_Speaking');
+    if (testData) {
+      setTimeLeft((testData.timeLimit || 8) * 60);
+    }
+    setCurrentQuestionIndex(0);
+    setAnswers({});
+    setEvaluationResults(null);
+    setShowResumePrompt(false);
+    setIsStarted(false);
+  };
+
+
   // Timer for test mode
   useEffect(() => {
-    if (mode === 'test' && isStarted && timeLeft > 0 && !isFinished) {
+    if (mode === 'test' && isStarted && !isPaused && timeLeft > 0 && !isFinished) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (mode === 'test' && timeLeft === 0 && isStarted) {
       setIsFinished(true);
     }
-  }, [timeLeft, isStarted, isFinished, mode]);
+  }, [timeLeft, isStarted, isFinished, mode, isPaused]);
+
+  const handlePause = () => {
+    setIsPaused(true);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.pause();
+    }
+    if (isRecording) {
+      handleRecordAnswer(); // Stop recording if they pause while recording!
+    }
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+    }
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -733,6 +789,29 @@ Return your evaluation in this JSON format:
       );
     }
 
+    if (showResumePrompt) {
+      return (
+        <motion.div
+          className="speaking-practice"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="start-screen">
+            <h1>🔄 Devam Et veya Baştan Başla</h1>
+            <p>Bu bölümde yarım kalmış bir testiniz var.</p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
+              <button onClick={handleResumeSession} className="start-btn" style={{ margin: 0, fontSize: '1rem' }}>
+                ▶️ Kaldığım Yerden Devam Et
+              </button>
+              <button onClick={handleRestartSession} className="start-btn" style={{ margin: 0, background: '#f44336', fontSize: '1rem' }}>
+                🔄 Baştan Başla
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
     // Start screen
     if (!isStarted) {
       return (
@@ -778,6 +857,24 @@ Return your evaluation in this JSON format:
       );
     }
 
+    if (isPaused) {
+      return (
+        <motion.div
+          className="speaking-practice"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="start-screen">
+            <h1>⏱️ Pause</h1>
+            <p>Test duraklatıldı. Süre işlemiyor ve ses kayıtları aktif değil.</p>
+            <button onClick={handleResume} className="btn-start">
+              ▶️ Devam Et
+            </button>
+          </div>
+        </motion.div>
+      );
+    }
+
     // Test question view
     const question = parsedQuestions[currentQuestionIndex];
 
@@ -797,8 +894,21 @@ Return your evaluation in this JSON format:
               ></div>
             </div>
           </div>
-          <div className={`timer ${timeLeft < 60 ? 'warning' : ''}`}>
+          <div className={`timer ${timeLeft < 60 ? 'warning' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             ⏱️ {formatTime(timeLeft)}
+            {isStarted && !isFinished && (
+              <button 
+                onClick={handlePause} 
+                className="pause-btn"
+                style={{
+                  background: 'none', border: '1px solid #ddd', borderRadius: '4px', padding: '4px 8px',
+                  cursor: 'pointer', fontSize: '12px', color: '#666',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                ⏸️ Duraklat
+              </button>
+            )}
           </div>
         </div>
 

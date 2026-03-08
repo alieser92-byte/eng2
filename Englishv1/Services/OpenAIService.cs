@@ -212,7 +212,7 @@ Generate complete, authentic content for ALL selected sections. Make passages ch
             }
             Console.WriteLine($"Stack Trace: {ex.StackTrace}");
             Console.WriteLine($"========================================");
-            return GenerateFallbackTest(difficulty, sections);
+            throw;
         }
     }
 
@@ -338,12 +338,6 @@ Keep responses concise and encouraging.";
             Console.WriteLine($"OpenAI API Error in GetConversation: {ex.Message}");
             return $"I'm having trouble connecting to the AI service right now. Please try again in a moment. Your message was: '{message}'";
         }
-    }
-
-    // Fallback: uses the large content bank to generate randomised tests
-    private string GenerateFallbackTest(string difficulty, string[] sections)
-    {
-        return ToeflTestBank.Generate(difficulty, sections);
     }
 
     // Helper methods to parse responses

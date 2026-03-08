@@ -3,20 +3,31 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import AIPromptModal from '../components/AIPromptModal';
 import { generateWritingEvalPrompt } from '../utils/promptGenerator';
+import { parseWritingContent } from '../utils/contentParser';
 import './WritingPractice.css';
 
 function WritingPractice() {
   const [taskType, setTaskType] = useState(null); // 'integrated' or 'independent'
+  const [mode, setMode] = useState('practice');
+  const [testData, setTestData] = useState(null);
+  const [parsedQuestions, setParsedQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [isFinished, setIsFinished] = useState(false);
+  const [isStarted, setIsStarted] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState('');
   const [essayContent, setEssayContent] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(1800); // 30 minutes
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [aiPromptText, setAiPromptText] = useState('');
   const [isLecturePlaying, setIsLecturePlaying] = useState(false);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedStateData, setSavedStateData] = useState(null);
 
   const integratedPrompts = [
     {
@@ -40,16 +51,119 @@ function WritingPractice() {
   ];
 
   useEffect(() => {
+    const storedTest = sessionStorage.getItem('currentTest');
+    
+    if (storedTest) {
+      const test = JSON.parse(storedTest);
+      const writingSection = test.sections.find(s => s.name === 'Writing');
+      
+      if (writingSection) {
+        setMode('test');
+        const questions = parseWritingContent(test.aiGeneratedContent);
+        if (questions.length > 0) {
+          setParsedQuestions(questions);
+        }
+        setTestData(writingSection);
+        
+        const savedStateStr = sessionStorage.getItem('testState_Writing_test');
+        if (savedStateStr) {
+          const savedState = JSON.parse(savedStateStr);
+          setSavedStateData(savedState);
+          setShowResumePrompt(true);
+        } else {
+          setTimeRemaining((writingSection.timeLimit || 23) * 60);
+        }
+      }
+    } else {
+      setMode('practice');
+      const savedStateStr = sessionStorage.getItem('testState_Writing_practice');
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr);
+        setSavedStateData(savedState);
+        setShowResumePrompt(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mode === 'practice' && isTimerRunning && !evaluation) {
+      const stateToSave = {
+        taskType,
+        currentPrompt,
+        essayContent,
+        wordCount,
+        timeRemaining
+      };
+      sessionStorage.setItem('testState_Writing_practice', JSON.stringify(stateToSave));
+    } else if (mode === 'test' && isStarted && !isFinished && !evaluation) {
+      const stateToSave = { currentQuestionIndex, answers, timeRemaining };
+      sessionStorage.setItem('testState_Writing_test', JSON.stringify(stateToSave));
+    }
+  }, [taskType, currentPrompt, essayContent, wordCount, timeRemaining, isTimerRunning, evaluation, mode, currentQuestionIndex, answers, isStarted, isFinished]);
+
+  useEffect(() => {
     let interval;
-    if (isTimerRunning && timeRemaining > 0) {
+    if (isTimerRunning && !isPaused && timeRemaining > 0) {
       interval = setInterval(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
-    } else if (timeRemaining === 0) {
+    } else if (isTimerRunning && !isPaused && timeRemaining === 0) {
       handleSubmit();
     }
     return () => clearInterval(interval);
-  }, [isTimerRunning, timeRemaining]);
+  }, [isTimerRunning, timeRemaining, isPaused]);
+
+  const handlePause = () => {
+    setIsPaused(true);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.pause();
+    }
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+    }
+  };
+
+  const handleResumeSession = () => {
+    if (savedStateData) {
+      if (mode === 'practice') {
+        setTaskType(savedStateData.taskType);
+        setCurrentPrompt(savedStateData.currentPrompt);
+        setEssayContent(savedStateData.essayContent || '');
+        setWordCount(savedStateData.wordCount || 0);
+        setTimeRemaining(savedStateData.timeRemaining || 1800);
+        setIsTimerRunning(true);
+      } else {
+        setCurrentQuestionIndex(savedStateData.currentQuestionIndex || 0);
+        setAnswers(savedStateData.answers || {});
+        setTimeRemaining(savedStateData.timeRemaining || 1380);
+        setIsStarted(true);
+        setIsTimerRunning(true);
+      }
+      setShowResumePrompt(false);
+    }
+  };
+
+  const handleRestartSession = () => {
+    if (mode === 'practice') {
+      sessionStorage.removeItem('testState_Writing_practice');
+      setIsTimerRunning(false);
+      setTaskType(null);
+      setCurrentPrompt('');
+      setEssayContent('');
+    } else {
+      sessionStorage.removeItem('testState_Writing_test');
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setTimeRemaining((testData?.timeLimit || 23) * 60);
+      setIsStarted(false);
+      setIsTimerRunning(false);
+    }
+    setShowResumePrompt(false);
+  };
 
   useEffect(() => {
     const words = essayContent.trim().split(/\s+/).filter(word => word.length > 0);
@@ -130,15 +244,53 @@ function WritingPractice() {
 
   const handleSubmit = () => {
     setIsTimerRunning(false);
-    const promptText = typeof currentPrompt === 'string' ? currentPrompt : currentPrompt.prompt;
-    const evalPrompt = generateWritingEvalPrompt(essayContent, promptText, taskType);
-    setAiPromptText(evalPrompt);
-    setShowPromptModal(true);
+    if (mode === 'practice') {
+      const promptText = typeof currentPrompt === 'string' ? currentPrompt : currentPrompt.prompt;
+      const evalPrompt = generateWritingEvalPrompt(essayContent, promptText, taskType);
+      setAiPromptText(evalPrompt);
+      setShowPromptModal(true);
+    } else {
+      // Test Mode Evaluation: Pass combined essay
+      let combinedEssay = '';
+      let hasEssayContent = false;
+      Object.entries(answers).forEach(([idx, text]) => {
+        const q = parsedQuestions[idx];
+        if (q && q.type !== 'build-sentence') {
+          hasEssayContent = true;
+          combinedEssay += `Task ${q.number}:\n${text}\n\n`;
+        }
+      });
+      // Fallback message if completely empty
+      if (!hasEssayContent || combinedEssay.trim() === '') {
+         combinedEssay = "(Boş teslim - herhangi bir makale yazılmadı)";
+      }
+      const evalPrompt = generateWritingEvalPrompt(combinedEssay, 'TOEFL iBT Writing test section (Email & Academic Discussion)', 'full-test');
+      setAiPromptText(evalPrompt);
+      setShowPromptModal(true);
+      setIsFinished(true); 
+    }
+  };
+
+  const handleAnswerChange = (text) => {
+    setAnswers({ ...answers, [currentQuestionIndex]: text });
+  };
+  
+  const handleNextSubmit = () => {
+    if (currentQuestionIndex < parsedQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      handleSubmit();
+    }
+  };
+  
+  const handleStartTest = () => {
+    setIsStarted(true);
+    setIsTimerRunning(true);
   };
 
   // Auto-advance to next section after showing results
   useEffect(() => {
-    if (evaluation && parsedQuestions.length > 0) {
+    if (evaluation) {
       const sectionsOrder = JSON.parse(sessionStorage.getItem('sectionsOrder') || '[]');
       const currentSectionIndex = sectionsOrder.indexOf('Writing');
       
@@ -162,7 +314,7 @@ function WritingPractice() {
         }
       }
     }
-  }, [evaluation, parsedQuestions.length]);
+  }, [evaluation]);
 
   const handleAIEvalResponse = (aiContent) => {
     setIsSubmitting(true);
@@ -242,7 +394,214 @@ function WritingPractice() {
         <p>TOEFL formatında yazma pratiği yapın ve detaylı AI değerlendirmesi alın</p>
       </motion.div>
 
-      {!taskType ? (
+      {showResumePrompt ? (
+        <motion.div 
+          className="start-screen"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{ textAlign: 'center', padding: '100px 0', background: 'white', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔄 Devam Et veya Baştan Başla</h1>
+          <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '2rem' }}>Bu bölümde yarım kalmış bir testiniz var.</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button onClick={handleResumeSession} className="start-task-btn" style={{ fontSize: '1rem', padding: '12px 30px' }}>
+              ▶️ Kaldığım Yerden Devam Et
+            </button>
+            <button onClick={handleRestartSession} className="start-task-btn" style={{ fontSize: '1rem', padding: '12px 30px', background: '#f44336' }}>
+              🔄 Baştan Başla
+            </button>
+          </div>
+        </motion.div>
+      ) : isPaused ? (
+        <motion.div 
+          className="start-screen"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{ textAlign: 'center', padding: '100px 0', background: 'white', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+        >
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏱️ Pause</h1>
+          <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '2rem' }}>Test duraklatıldı. Süre işlemiyor.</p>
+          <button onClick={handleResume} className="start-task-btn" style={{ fontSize: '1.2rem', padding: '12px 30px' }}>
+            ▶️ Devam Et
+          </button>
+        </motion.div>
+      ) : evaluation ? (
+        <motion.div 
+          className="evaluation-section"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <div className="evaluation-header">
+            <h2>📊 Essay Değerlendirmesi</h2>
+            <div className="overall-score">
+              <div className="score-circle-large">
+                <span className="score-number">{evaluation.score}</span>
+                <span className="score-max">/ {evaluation.maxScore}</span>
+              </div>
+              <div className="score-rating">
+                {evaluation.score >= 24 ? '🌟 Mükemmel' :
+                 evaluation.score >= 20 ? '✅ İyi' :
+                 evaluation.score >= 15 ? '👍 Orta' : '📚 Geliştirilmeli'}
+              </div>
+            </div>
+          </div>
+
+          <div className="feedback-sections">
+            <div className="feedback-card">
+              <h3>📚 Grammar & Syntax</h3>
+              <div className="feedback-content">
+                <p>{evaluation.feedback.grammar}</p>
+              </div>
+            </div>
+
+            <div className="feedback-card">
+              <h3>🔤 Vocabulary & Word Choice</h3>
+              <div className="feedback-content">
+                <p>{evaluation.feedback.vocabulary}</p>
+              </div>
+            </div>
+
+            <div className="feedback-card">
+              <h3>🏗️ Organization & Structure</h3>
+              <div className="feedback-content">
+                <p>{evaluation.feedback.organization}</p>
+              </div>
+            </div>
+
+            <div className="feedback-card">
+              <h3>💡 Development & Support</h3>
+              <div className="feedback-content">
+                <p>{evaluation.feedback.development}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="overall-comments">
+            <h3>💬 Overall Comments</h3>
+            <p>{evaluation.feedback.overallComments}</p>
+          </div>
+
+          <div className="action-buttons">
+            <button className="review-btn">📥 Raporu İndir</button>
+            <button className="new-task-btn" onClick={resetTask}>
+              🔄 Yeni Görev
+            </button>
+          </div>
+        </motion.div>
+      ) : mode === 'test' ? (
+        !isStarted ? (
+          <motion.div className="start-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <h1>Writing Bölümü</h1>
+            <div className="test-info">
+              <div className="info-card">
+                <h3>Soru Sayısı</h3>
+                <p>{parsedQuestions.length} öğe</p>
+              </div>
+              <div className="info-card">
+                <h3>Süre</h3>
+                <p>{testData?.timeLimit || 23} dakika</p>
+              </div>
+              <div className="info-card">
+                <h3>Görevler</h3>
+                <ul className="task-list">
+                  {testData?.tasks?.map((task, index) => (
+                    <li key={index}>{task}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <button onClick={handleStartTest} className="btn-start" style={{ padding: '12px 24px', fontSize: '1.2rem', background: '#667eea', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+              Teste Başla
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div className="writing-area" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="writing-layout">
+              <div className="prompt-section">
+                <div className="timer-bar" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <div className="timer-display" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="timer-label">⏱️ Kalan Süre:</span>
+                    <span className={`timer-value ${timeRemaining < 300 ? 'warning' : ''}`}>
+                      {formatTime(timeRemaining)}
+                    </span>
+                    <button onClick={handlePause} className="pause-btn" style={{ background: 'none', border: '1px solid #ddd', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: '#666' }}>
+                      ⏸️ Duraklat
+                    </button>
+                  </div>
+                  <div className="question-progress" style={{ fontWeight: 'bold' }}>
+                    Soru {currentQuestionIndex + 1} / {parsedQuestions.length}
+                  </div>
+                </div>
+
+                {parsedQuestions[currentQuestionIndex]?.type === 'build-sentence' ? (
+                  <div className="independent-prompt">
+                    <h3>✏️ Sentence Creation</h3>
+                    <p style={{fontStyle: 'italic', marginBottom: '10px'}}>{parsedQuestions[currentQuestionIndex].context}</p>
+                    <p style={{marginBottom: '5px'}}><strong>Sentence:</strong> {parsedQuestions[currentQuestionIndex].partialSentence}</p>
+                    <p style={{color: '#666', background: '#f5f5f5', padding: '10px', borderRadius: '5px'}}>
+                      <strong>Parts:</strong> {parsedQuestions[currentQuestionIndex].scrambledWords}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="independent-prompt">
+                    <h3>✏️ {parsedQuestions[currentQuestionIndex]?.type === 'email' ? 'Email Response' : 'Academic Discussion'}</h3>
+                    <p className="prompt-instructions" style={{marginBottom: '10px'}}><strong>Instructions:</strong> {parsedQuestions[currentQuestionIndex]?.instructions}</p>
+                    <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', fontSize: '0.95rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                      {parsedQuestions[currentQuestionIndex]?.content}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="editor-section">
+                 {parsedQuestions[currentQuestionIndex]?.type === 'build-sentence' ? (
+                   <input
+                     type="text"
+                     className="essay-editor"
+                     style={{ height: '60px', padding: '15px', fontSize: '1.1rem', backgroundColor: '#fff', border: '2px solid #ddd', borderRadius: '8px' }}
+                     value={answers[currentQuestionIndex] || ''}
+                     onChange={(e) => handleAnswerChange(e.target.value)}
+                     placeholder="Type your complete grammatical sentence here..."
+                     disabled={!isTimerRunning}
+                   />
+                 ) : (
+                   <>
+                     <div className="editor-toolbar">
+                       <button className="tool-btn" title="Bold"><strong>B</strong></button>
+                       <button className="tool-btn" title="Italic"><em>I</em></button>
+                     </div>
+                     <textarea
+                       className="essay-editor"
+                       value={answers[currentQuestionIndex] || ''}
+                       onChange={(e) => handleAnswerChange(e.target.value)}
+                       placeholder="Start writing your essay here..."
+                       disabled={!isTimerRunning}
+                     />
+                     <div style={{textAlign: 'right', fontSize: '12px', color: '#666', padding: '5px'}}>
+                       Kelime: {(answers[currentQuestionIndex] || '').trim().split(/\s+/).filter(w=>w.length>0).length}
+                     </div>
+                   </>
+                 )}
+                
+                <div className="editor-actions">
+                  {currentQuestionIndex > 0 && (
+                    <button className="save-draft-btn" onClick={() => setCurrentQuestionIndex(currentQuestionIndex - 1)}>
+                      ← Geri
+                    </button>
+                  )}
+                  <button 
+                    className="submit-btn"
+                    onClick={handleNextSubmit}
+                    disabled={isSubmitting || !(answers[currentQuestionIndex] && answers[currentQuestionIndex].length > 0)}
+                  >
+                    {isSubmitting ? '⏳ Lütfen bekleyin...' : (currentQuestionIndex === parsedQuestions.length - 1 ? '✅ Gönder ve Bitir' : 'İleri →')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )
+      ) : !taskType ? (
         <motion.div 
           className="task-selection"
           initial={{ opacity: 0 }}
@@ -315,7 +674,7 @@ function WritingPractice() {
             </div>
           </div>
         </motion.div>
-      ) : !evaluation ? (
+      ) : (
         <motion.div 
           className="writing-area"
           initial={{ opacity: 0 }}
@@ -324,11 +683,22 @@ function WritingPractice() {
           <div className="writing-layout">
             <div className="prompt-section">
               <div className="timer-bar">
-                <div className="timer-display">
+                <div className="timer-display" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="timer-label">⏱️ Kalan Süre:</span>
                   <span className={`timer-value ${timeRemaining < 300 ? 'warning' : ''}`}>
                     {formatTime(timeRemaining)}
                   </span>
+                  <button 
+                    onClick={handlePause} 
+                    className="pause-btn"
+                    style={{
+                      background: 'none', border: '1px solid #ddd', borderRadius: '4px', padding: '4px 8px',
+                      cursor: 'pointer', fontSize: '12px', color: '#666',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    ⏸️ Duraklat
+                  </button>
                 </div>
                 <div className="word-counter">
                   <span className="word-label">📝 Kelime:</span>
@@ -416,80 +786,6 @@ function WritingPractice() {
                 </button>
               </div>
             </div>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div 
-          className="evaluation-section"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <div className="evaluation-header">
-            <h2>📊 Essay Değerlendirmesi</h2>
-            <div className="overall-score">
-              <div className="score-circle-large">
-                <span className="score-number">{evaluation.score}</span>
-                <span className="score-max">/ {evaluation.maxScore}</span>
-              </div>
-              <div className="score-rating">
-                {evaluation.score >= 24 ? '🌟 Mükemmel' :
-                 evaluation.score >= 20 ? '✅ İyi' :
-                 evaluation.score >= 15 ? '👍 Orta' : '📚 Geliştirilmeli'}
-              </div>
-            </div>
-          </div>
-
-          <div className="feedback-sections">
-            <div className="feedback-card">
-              <h3>📚 Grammar & Syntax</h3>
-              <div className="feedback-content">
-                <p>{evaluation.feedback.grammar}</p>
-              </div>
-            </div>
-
-            <div className="feedback-card">
-              <h3>🔤 Vocabulary & Word Choice</h3>
-              <div className="feedback-content">
-                <p>{evaluation.feedback.vocabulary}</p>
-              </div>
-            </div>
-
-            <div className="feedback-card">
-              <h3>🏗️ Organization & Structure</h3>
-              <div className="feedback-content">
-                <p>{evaluation.feedback.organization}</p>
-              </div>
-            </div>
-
-            <div className="feedback-card">
-              <h3>💡 Development & Support</h3>
-              <div className="feedback-content">
-                <p>{evaluation.feedback.development}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="overall-comments">
-            <h3>💬 Overall Comments</h3>
-            <p>{evaluation.feedback.overallComments}</p>
-          </div>
-
-          <div className="essay-review">
-            <h3>📝 Your Essay</h3>
-            <div className="essay-display">
-              {essayContent}
-            </div>
-            <div className="essay-stats">
-              <span>Kelime Sayısı: {wordCount}</span>
-              <span>Tamamlanma: {new Date(evaluation.evaluatedAt).toLocaleString('tr-TR')}</span>
-            </div>
-          </div>
-
-          <div className="action-buttons">
-            <button className="review-btn">📥 Raporu İndir</button>
-            <button className="new-task-btn" onClick={resetTask}>
-              🔄 Yeni Görev
-            </button>
           </div>
         </motion.div>
       )}

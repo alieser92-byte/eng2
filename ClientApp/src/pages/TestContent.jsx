@@ -301,8 +301,12 @@ function TestContent() {
   const [timeLeft, setTimeLeft] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [showHints, setShowHints] = useState({}); // Track which hints are shown
   const [score, setScore] = useState({ correct: 0, wrong: 0, total: 0 });
+  
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedStateData, setSavedStateData] = useState(null);
 
   // Parse questions from AI content
   const parsedQuestions = useMemo(() => {
@@ -313,29 +317,79 @@ function TestContent() {
   useEffect(() => {
     // Get test data from sessionStorage
     const storedTest = sessionStorage.getItem('currentTest');
-    const storedSection = sessionStorage.getItem('currentSection');
+    let storedSection = sessionStorage.getItem('currentSection');
     
-    if (storedTest && storedSection) {
+    if (storedTest) {
+      if (!storedSection) {
+        storedSection = 'Reading';
+        sessionStorage.setItem('currentSection', storedSection);
+      }
+      
       const test = JSON.parse(storedTest);
       setTestData(test);
       setSection(storedSection);
       
-      // Set timer based on section
-      const sectionData = test.sections.find(s => s.name === storedSection);
-      if (sectionData) {
-        setTimeLeft(sectionData.timeLimit * 60); // Convert to seconds
+      const savedStateStr = sessionStorage.getItem(`testState_${storedSection}`);
+      if (savedStateStr) {
+        const savedState = JSON.parse(savedStateStr);
+        setSavedStateData(savedState);
+        setShowResumePrompt(true);
+      } else {
+        // Set timer based on section
+        const sectionData = test.sections.find(s => s.name === storedSection);
+        if (sectionData) {
+          setTimeLeft(sectionData.timeLimit * 60); // Convert to seconds
+        }
       }
     }
   }, []);
 
+  // Save state continuously when active
   useEffect(() => {
-    if (isStarted && timeLeft !== null && timeLeft > 0 && !isFinished) {
+    if (isStarted && !isFinished && section) {
+      const stateToSave = {
+        currentQuestion,
+        answers,
+        timeLeft,
+        score
+      };
+      sessionStorage.setItem(`testState_${section}`, JSON.stringify(stateToSave));
+    }
+  }, [currentQuestion, answers, timeLeft, isStarted, isFinished, section, score]);
+
+  const handleResumeSession = () => {
+    if (savedStateData) {
+      setCurrentQuestion(savedStateData.currentQuestion || 0);
+      setAnswers(savedStateData.answers || {});
+      setTimeLeft(savedStateData.timeLeft || 0);
+      setScore(savedStateData.score || { correct: 0, wrong: 0, total: 0 });
+      setIsStarted(true);
+      setShowResumePrompt(false);
+    }
+  };
+
+  const handleRestartSession = () => {
+    sessionStorage.removeItem(`testState_${section}`);
+    const sectionData = testData.sections.find(s => s.name === section);
+    if (sectionData) {
+      setTimeLeft(sectionData.timeLimit * 60);
+    }
+    setCurrentQuestion(0);
+    setAnswers({});
+    setScore({ correct: 0, wrong: 0, total: 0 });
+    setShowResumePrompt(false);
+    setIsStarted(false);
+  };
+
+
+  useEffect(() => {
+    if (isStarted && !isPaused && timeLeft !== null && timeLeft > 0 && !isFinished) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (isStarted && timeLeft === 0 && !isFinished) {
       handleFinish();
     }
-  }, [timeLeft, isFinished, isStarted]);
+  }, [timeLeft, isFinished, isStarted, isPaused]);
 
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined) return '0:00';
@@ -415,13 +469,36 @@ function TestContent() {
     }
   }, [isFinished, score, section]);
 
-  if (!testData || timeLeft === null) {
+  if (!testData || (timeLeft === null && !showResumePrompt)) {
     return (
       <div className="test-content">
         <div className="loading-state">
           <div className="loading-spinner"></div>
           <p>Test yükleniyor...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (showResumePrompt) {
+    return (
+      <div className="test-content">
+        <motion.div 
+          className="start-screen"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <h1>🔄 Devam Et veya Baştan Başla</h1>
+          <p>Bu bölümde yarım kalmış bir testiniz var.</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
+            <button onClick={handleResumeSession} className="start-btn" style={{ margin: 0, fontSize: '1rem' }}>
+              ▶️ Kaldığım Yerden Devam Et
+            </button>
+            <button onClick={handleRestartSession} className="start-btn" style={{ margin: 0, background: '#f44336', fontSize: '1rem' }}>
+              🔄 Baştan Başla
+            </button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -479,6 +556,24 @@ function TestContent() {
       </div>
     );
   }
+
+  if (isPaused) {
+    return (
+      <div className="test-content">
+        <motion.div 
+          className="start-screen"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <h1>⏱️ Pause</h1>
+          <p>Test duraklatıldı. Süre işlemiyor.</p>
+          <button onClick={() => setIsPaused(false)} className="start-btn">
+            ▶️ Devam Et
+          </button>
+        </motion.div>
+      </div>
+    );
+  } 
 
   if (isFinished) {
     return (
@@ -586,10 +681,22 @@ function TestContent() {
               </span>
             )}
           </div>
-          <div className="timer">
+          <div className="timer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className={timeLeft < 300 ? 'timer-warning' : ''}>
               ⏱️ {formatTime(timeLeft)}
             </span>
+            {isStarted && !isFinished && (
+              <button 
+                onClick={() => setIsPaused(true)} 
+                style={{
+                  background: 'none', border: '1px solid #ddd', borderRadius: '4px', padding: '4px 8px',
+                  cursor: 'pointer', fontSize: '12px', color: '#666',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '10px'
+                }}
+              >
+                ⏸️ Duraklat
+              </button>
+            )}
           </div>
         </div>
       </div>

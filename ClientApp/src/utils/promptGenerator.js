@@ -7,13 +7,17 @@ export function generateToeflPrompt(difficulty, sections) {
     advanced: 'Advanced (TOEFL score range 4-6)'
   }[difficulty] || difficulty;
 
-  let prompt = `Generate a complete TOEFL iBT practice test. Follow the EXACT format below.
+  // Add a random seed to ensure uniqueness each time
+  const randomSeed = Math.floor(Math.random() * 100000);
+
+  let prompt = `Generate a COMPLETELY NOVEL and UNIQUE TOEFL iBT practice test. Do not use generic or previously generated examples. Topics must be highly original. (Seed: ${randomSeed})
+Follow the EXACT format below.
 Difficulty: ${difficultyLabel}
 Sections: ${sections.join(', ')}
 
 **CRITICAL INSTRUCTIONS:**
 1. Generate ALL sections in ONE single response - DO NOT split into multiple messages
-2. Include ALL content: passages, questions, and answer keys
+2. Provide COMPLETELY UNIQUE content for all sections (new topics, different conversations, different reading passages) compared to standard examples.
 3. Use EXACTLY the format specified below
 4. Each question must have (A), (B), (C), (D) options on separate lines
 5. Do NOT ask if you should continue - complete everything in this response
@@ -32,24 +36,25 @@ Sections: ${sections.join(', ')}
 Write a paragraph (80-120 words) about an interesting academic topic. Remove 2-4 letters from EXACTLY 10 different words and replace them with underscores.
 
 **IMPORTANT FORMAT RULES:**
-- Number each blank clearly: (1)___, (2)___, (3)___, etc.
-- Remove 2-4 letters from each word (not just 1 letter)
+- Number each blank clearly immediately before the word: (1)word__, (2)exam___, etc.
+- Remove 2-4 letters FROM THE END of the word ONLY.
+- Use EXACTLY AS MANY UNDERSCORES AS THE NUMBER OF REMOVED LETTERS (e.g. if you remove 3 letters, use exactly 3 underscores '___').
 - Make sure there are EXACTLY 10 blanks
 - The Answer Key should list ONLY the missing letters (not the full word)
 
 Example:
-"The human brain is a complex organ responsible for controlling all bodily functions. It is (1)divi___ into several regions, each with (2)spe___ roles. The cerebrum, the (3)lar___ part, is involved in cognitive (4)func___ such as reasoning and (5)mem___. The cerebellum (6)coor___ movement and balance. The brain stem (7)reg___ basic life functions like breathing and heart rate. (8)Neur___ transmit signals between brain regions. The brain (9)cons___ about 2% of body weight but uses 20% of the body's (10)ener___."
+"The human brain is a complex organ responsible for controlling all bodily functions. It is (1)divid__ into several regions, each with (2)specif__ roles. The cerebrum, the (3)large__ part, is involved in cognitive (4)functi___ such as reasoning and (5)memo__. The cerebellum (6)coordina___ movement and balance. The brain stem (7)regulat__ basic life functions like breathing and heart rate. (8)Neuro__ transmit signals between brain regions. The brain (9)consum__ about 2% of body weight but uses 20% of the body's (10)ener__."
 
 Answer Key:
-1. ded
-2. cific
-3. gest
-4. tions
-5. ory
-6. dinates
-7. ulates
-8. ons
-9. umes
+1. ed
+2. ic
+3. st
+4. ons
+5. ry
+6. tes
+7. es
+8. ns
+9. es
 10. gy
 
 #### Read a notice (Questions 11-12)
@@ -130,7 +135,7 @@ Write a 200-300 word academic passage on a topic like science, psychology, or hi
 
 Write a DIFFERENT paragraph (80-120 words) about a NEW topic. Use the SAME FORMAT as Module 1.
 
-**IMPORTANT:** Number each blank: (1)___, (2)___, up to (10)___. Remove 2-4 letters from each word.
+**IMPORTANT:** Number each blank. Remove 2-4 letters FROM THE END of the word. Use EXACTLY AS MANY UNDERSCORES AS THE MISSING LETTERS at the end of the word.
 
 Answer Key should list only the missing letters.
 

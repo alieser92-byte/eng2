@@ -22,6 +22,8 @@ function App() {
             <ul className="nav-menu">
               <li><Link to="/" className="nav-link">Ana Sayfa</Link></li>
               <li><Link to="/test-generator" className="nav-link">Test Üretici</Link></li>
+              <li><Link to="/test-content" className="nav-link">Reading</Link></li>
+              <li><Link to="/listening-practice" className="nav-link">Listening</Link></li>
               <li><Link to="/speaking" className="nav-link">Konuşma</Link></li>
               <li><Link to="/writing" className="nav-link">Yazma</Link></li>
               <li><Link to="/vocabulary" className="nav-link">Kelime</Link></li>

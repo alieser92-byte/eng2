@@ -4,6 +4,28 @@ import { motion } from 'framer-motion';
 import './Home.css';
 
 function Home() {
+  const [currentTest, setCurrentTest] = React.useState(null);
+
+  React.useEffect(() => {
+    const testInfo = sessionStorage.getItem('currentTest');
+    if (testInfo) {
+      setCurrentTest(JSON.parse(testInfo));
+    }
+  }, []);
+
+  const handleSectionClick = (e, feature) => {
+    if (feature.sectionName) {
+      if (!currentTest) {
+        e.preventDefault();
+        alert('Bu bölüme girmeden önce "Test Üretici" kısmından yeni bir test oluşturmanız gerekiyor. Dummy data kullanımı kaldırılmıştır.');
+        return;
+      }
+      
+      // Test varsa section ayarlayıp devam edelim
+      sessionStorage.setItem('currentSection', feature.sectionName);
+    }
+  };
+
   const features = [
     {
       icon: '📝',
@@ -13,18 +35,36 @@ function Home() {
       color: '#667eea'
     },
     {
+      icon: '📖',
+      title: 'Reading',
+      description: 'Okuma pasajlarını ve sorularını çözün',
+      link: '/test-content',
+      color: '#ff9a9e',
+      sectionName: 'Reading'
+    },
+    {
+      icon: '🎧',
+      title: 'Listening',
+      description: 'Dinleme pratikleri ve soruları',
+      link: '/listening-practice',
+      color: '#a18cd1',
+      sectionName: 'Listening'
+    },
+    {
       icon: '🎤',
-      title: 'Konuşma Pratiği',
+      title: 'Speaking',
       description: 'AI ile konuşun, anlık altyazı ve feedback alın',
-      link: '/speaking',
-      color: '#f093fb'
+      link: '/speaking-practice',
+      color: '#f093fb',
+      sectionName: 'Speaking'
     },
     {
       icon: '✍️',
-      title: 'Writing Practice',
+      title: 'Writing',
       description: 'Essay yazın ve AI değerlendirmesi alın',
-      link: '/writing',
-      color: '#4facfe'
+      link: '/writing-practice',
+      color: '#4facfe',
+      sectionName: 'Writing'
     },
     {
       icon: '📚',
@@ -78,7 +118,11 @@ function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: index * 0.1 }}
           >
-            <Link to={feature.link} className="feature-card">
+            <Link 
+              to={feature.link} 
+              className="feature-card"
+              onClick={(e) => handleSectionClick(e, feature)}
+            >
               <div className="feature-icon" style={{ background: feature.color }}>
                 {feature.icon}
               </div>

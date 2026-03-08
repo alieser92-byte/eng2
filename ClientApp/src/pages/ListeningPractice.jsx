@@ -11,9 +11,13 @@ const ListeningPractice = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioCompleted, setAudioCompleted] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedStateData, setSavedStateData] = useState(null);
 
   const audioRef = useRef(null);
 
@@ -35,23 +39,7 @@ const ListeningPractice = () => {
         if (questions.length > 0) {
           setParsedQuestions(questions);
         } else {
-          const questionCount = typeof listeningSection.questions === 'number'
-            ? listeningSection.questions
-            : 10;
-          const mockQuestions = Array.from({ length: questionCount }, (_, i) => ({
-            id: i + 1,
-            type: 'best-response',
-            number: i + 1,
-            conversation: `Sample conversation for question ${i + 1}`,
-            questionText: `Question ${i + 1}: What is the main idea?`,
-            options: [
-              { letter: 'A', text: 'Option A' },
-              { letter: 'B', text: 'Option B' },
-              { letter: 'C', text: 'Option C' },
-              { letter: 'D', text: 'Option D' }
-            ]
-          }));
-          setParsedQuestions(mockQuestions);
+          setParsedQuestions([]);
         }
 
         const processedSection = {
@@ -61,19 +49,80 @@ const ListeningPractice = () => {
         };
 
         setTestData(processedSection);
-        setTimeLeft((listeningSection.timeLimit || 10) * 60);
+        
+        const savedStateStr = sessionStorage.getItem('testState_Listening');
+        if (savedStateStr) {
+          const savedState = JSON.parse(savedStateStr);
+          setSavedStateData(savedState);
+          setShowResumePrompt(true);
+        } else {
+          setTimeLeft((listeningSection.timeLimit || 10) * 60);
+        }
       }
     }
   }, []);
 
+  // Save state continuously when active
   useEffect(() => {
-    if (isStarted && timeLeft > 0 && !isFinished) {
+    if (isStarted && !isFinished) {
+      const stateToSave = {
+        currentQuestion,
+        answers,
+        timeLeft,
+        audioCompleted,
+        showTranscript
+      };
+      sessionStorage.setItem('testState_Listening', JSON.stringify(stateToSave));
+    }
+  }, [currentQuestion, answers, timeLeft, isStarted, isFinished, audioCompleted, showTranscript]);
+
+  const handleResumeSession = () => {
+    if (savedStateData) {
+      setCurrentQuestion(savedStateData.currentQuestion || 0);
+      setAnswers(savedStateData.answers || {});
+      setTimeLeft(savedStateData.timeLeft || 0);
+      setAudioCompleted(savedStateData.audioCompleted || false);
+      setShowTranscript(savedStateData.showTranscript || false);
+      setIsStarted(true);
+      setShowResumePrompt(false);
+    }
+  };
+
+  const handleRestartSession = () => {
+    sessionStorage.removeItem('testState_Listening');
+    if (testData) {
+      setTimeLeft((testData.duration || 10) * 60);
+    }
+    setCurrentQuestion(0);
+    setAnswers({});
+    setAudioCompleted(false);
+    setShowTranscript(false);
+    setShowResumePrompt(false);
+    setIsStarted(false);
+  };
+
+  useEffect(() => {
+    if (isStarted && !isPaused && timeLeft > 0 && !isFinished) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && isStarted) {
       setIsFinished(true);
     }
-  }, [timeLeft, isStarted, isFinished]);
+  }, [timeLeft, isStarted, isFinished, isPaused]);
+
+  const handlePause = () => {
+    setIsPaused(true);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.pause();
+    }
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+    }
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -260,13 +309,37 @@ const ListeningPractice = () => {
   }
 
   // Loading / no test data
-  if (!testData) {
+  if (!testData || (timeLeft === 0 && !isFinished && !showResumePrompt)) {
     return (
       <div className="listening-practice">
         <div className="loading">
           <div className="spinner"></div>
           <p>Listening testi yükleniyor...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Resume screen
+  if (showResumePrompt) {
+    return (
+      <div className="listening-practice">
+        <motion.div 
+          className="start-screen"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <h1>🔄 Devam Et veya Baştan Başla</h1>
+          <p>Bu bölümde yarım kalmış bir testiniz var.</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
+            <button onClick={handleResumeSession} className="start-btn" style={{ margin: 0, fontSize: '1rem' }}>
+              ▶️ Kaldığım Yerden Devam Et
+            </button>
+            <button onClick={handleRestartSession} className="start-btn" style={{ margin: 0, background: '#f44336', fontSize: '1rem' }}>
+              🔄 Baştan Başla
+            </button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -301,6 +374,20 @@ const ListeningPractice = () => {
     );
   }
 
+  if (isPaused) {
+    return (
+      <motion.div className="listening-practice" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <div className="start-screen">
+          <h1>⏱️ Pause</h1>
+          <p>Test duraklatıldı. Süre işlemiyor.</p>
+          <button onClick={handleResume} className="btn-start">
+            ▶️ Devam Et
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
   const question = parsedQuestions[currentQuestion];
 
   const getQuestionTypeLabel = (type) => {
@@ -322,7 +409,21 @@ const ListeningPractice = () => {
           <span>Soru {parsedQuestions[currentQuestion]?.globalNumber || currentQuestion + 1} / {parsedQuestions.length}</span>
           <div className="progress-bar"><div className="progress-fill" style={{ width: `${((currentQuestion + 1) / parsedQuestions.length) * 100}%` }}></div></div>
         </div>
-        <div className={`timer ${timeLeft < 300 ? 'warning' : ''}`}>⏱️ {formatTime(timeLeft)}</div>
+        <div className={`timer ${timeLeft < 300 ? 'warning' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          ⏱️ {formatTime(timeLeft)}
+          {isStarted && !isFinished && (
+            <button 
+              onClick={handlePause} 
+              style={{
+                background: 'none', border: '1px solid #ddd', borderRadius: '4px', padding: '4px 8px',
+                cursor: 'pointer', fontSize: '12px', color: '#666',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              ⏸️ Duraklat
+            </button>
+          )}
+        </div>
         <div className="live-results" style={{ marginLeft: '1rem' }}>
           <span style={{ marginRight: '0.75rem' }}>Cevaplanan: {answered}</span>
           <span style={{ marginRight: '0.75rem' }}>✔️ {correct}</span>

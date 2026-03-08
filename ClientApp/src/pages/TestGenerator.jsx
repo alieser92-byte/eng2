@@ -36,6 +36,11 @@ function TestGenerator() {
     try {
       const testData = buildTestStructure(difficulty, sections, aiContent);
       setGeneratedTest(testData);
+      
+      // Hemen sessionStorage'a kaydet ki diğer sayfalardan erişilebilsin
+      sessionStorage.setItem('currentTest', JSON.stringify(testData));
+      sessionStorage.setItem('sectionsOrder', JSON.stringify(sections));
+      
       setShowPromptModal(false);
     } catch (error) {
       console.error('Error building test:', error);
